@@ -1,5 +1,5 @@
 // struct ResultSet {
-//     rows_affected: u64,
+//     rows_affected: i64,
 // }
 
 

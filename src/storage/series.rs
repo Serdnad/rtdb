@@ -16,7 +16,7 @@ pub struct SeriesEntry<'a> {
     pub values: HashMap<&'a str, f64>,
 
     // Timestamp as nanoseconds since Unix epoch
-    pub time: u128,
+    pub time: i64,
 }
 
 #[derive(Debug)]
@@ -89,7 +89,7 @@ pub fn merge_records(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> 
     let mut indices = vec![0; fields.len()];
 
     loop {
-        let next_timestamps: Vec<u128> = indices.iter().enumerate().map(|(f, &i)| {
+        let next_timestamps: Vec<i64> = indices.iter().enumerate().map(|(f, &i)| {
             fields[f][i].time
         }).collect();
 
@@ -199,11 +199,11 @@ mod tests {
         for i in 0..20 {
             let entry1 = SeriesEntry {
                 values: HashMap::from([("value1", 1.0), ("value2", 101.0)]),
-                time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos(),
+                time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() as i64,
             };
             let entry2 = SeriesEntry {
                 values: HashMap::from([("value1", 1.0), ("value2", 101.0)]),
-                time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos(),
+                time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() as i64,
             };
 
             s.insert(entry1);
@@ -234,7 +234,7 @@ mod tests {
         for _ in 0..ENTRIES_PER_BLOCK + 1 {
             s.insert(SeriesEntry {
                 values: HashMap::from([("value1", 1.0), ("value2", -1.0)]),
-                time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos(),
+                time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() as i64,
             });
         }
 

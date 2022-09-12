@@ -12,8 +12,8 @@ use crate::storage::field::FieldEntry;
 #[archive(compare(PartialEq))]
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct FieldStorageBlockSummary {
-    pub(crate) start_timestamp: u128,
-    pub(crate) latest_timestamp: u128,
+    pub(crate) start_timestamp: i64,
+    pub(crate) latest_timestamp: i64,
 }
 
 impl FieldStorageBlockSummary {

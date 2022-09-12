@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{black_box, Criterion, criterion_group, criterion_main};
 
 use rtdb::storage::field::{FieldEntry, FieldStorage};
 use rtdb::storage::field_block::FieldStorageBlock;
@@ -45,6 +45,18 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     // MERGING RECORDS
+    c.bench_function("numbers reference", |b| {
+        b.iter(|| {
+            black_box(
+                if 3 > 1 {
+                    if 2 < 4 {
+                        let mut a = vec![1, 2, 3, 4];
+                        a.reverse()
+                    }
+                });
+        })
+    });
+
     c.bench_function("arg min all", |b| {
         b.iter(|| {
             arg_min_all(&vec![1, 0, 3, 1]);

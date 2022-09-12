@@ -15,7 +15,7 @@ use crate::storage::SupportedDataType;
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct FieldEntry {
     // Timestamp as nanoseconds since Unix epoch
-    pub time: u128,
+    pub time: i64,
 
     // TODO: type tmp
     pub value: f64,
@@ -141,7 +141,7 @@ mod tests {
         let mut s = FieldStorage::new("test_series", "value1");
 
         for i in 0..ENTRIES_PER_BLOCK * 10 + 1 {
-            s.insert(FieldEntry { value: i as f64, time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() });
+            s.insert(FieldEntry { value: i as f64, time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() as i64 });
         }
     }
 

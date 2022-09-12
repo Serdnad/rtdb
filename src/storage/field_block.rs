@@ -43,7 +43,7 @@ impl FieldStorageBlock {
         }
     }
 
-    pub fn read(&self, from: Option<u128>, until: Option<u128>) -> Vec<FieldEntry> {
+    pub fn read(&self, from: Option<i64>, until: Option<i64>) -> Vec<FieldEntry> {
         if from.is_none() && until.is_none() {
             return self.entries[..].to_vec();
         }
