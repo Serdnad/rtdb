@@ -1,0 +1,1 @@
+Assets used by tests. The tests themselves are under `src`.
