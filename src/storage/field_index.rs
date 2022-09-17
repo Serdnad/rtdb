@@ -12,6 +12,7 @@ use crate::storage::field::FieldEntry;
 #[archive(compare(PartialEq))]
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct FieldStorageBlockSummary {
+    // TODO: We should also store min, max, and mean, for faster aggregating
     pub(crate) start_timestamp: i64,
     pub(crate) latest_timestamp: i64,
 }
@@ -32,17 +33,12 @@ impl FieldStorageBlockSummary {
     pub fn load_all(path: &str) -> Vec<FieldStorageBlockSummary> {
         let mut bytes = read(path).unwrap();
 
-        // dbg!(&bytes);
-        //
         let mut summaries = Vec::with_capacity(bytes.len() / size_of::<FieldStorageBlockSummary>());
-
 
         for offset in (0..bytes.len()).step_by(32) {
             let summary = rkyv::from_bytes::<FieldStorageBlockSummary>(&bytes[offset..offset + 32]).unwrap();
             summaries.push(summary);
         }
-
-        // let summaries = rkyv::from_bytes::<Vec<FieldStorageBlockSummary>>(&bytes).unwrap();
 
         summaries
     }

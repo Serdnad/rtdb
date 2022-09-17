@@ -1,21 +1,8 @@
 extern crate core;
 
 pub mod storage;
-mod execution;
+pub mod execution;
 pub mod lang;
 pub mod util;
+pub mod server;
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}

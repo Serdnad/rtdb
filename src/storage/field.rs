@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::unix::fs::FileExt;
@@ -34,14 +35,58 @@ pub struct FieldStorage {
 
     // buffer to be written as a block
     curr_block: FieldStorageBlock,
+
+    // todo
+    pub block_manager: BlockManager,
 }
 
+/// BlockManager is responsible for intelligently caching field storage blocks in memory, loading
+/// them from disk when necessary.
+#[derive(Debug)]
+pub struct BlockManager {
+    data_file: File,
+
+    // key is the block index
+    blocks: HashMap<usize, FieldStorageBlock>,
+}
+
+impl BlockManager {
+    pub fn new(data_file: File) -> BlockManager {
+        BlockManager {
+            data_file,
+            blocks: Default::default(),
+        }
+    }
+
+    pub fn load(&mut self, block_offset: usize) -> &FieldStorageBlock {
+        if self.blocks.contains_key(&block_offset) {
+            return &self.blocks[&block_offset];
+        }
+
+
+        // match self.blocks.get(&block_offset) {
+        //     Some(block) => block,
+        //     None => {
+        let block = FieldStorageBlock::load(&self.data_file, block_offset);
+        self.blocks.insert(block_offset, block);
+        &self.blocks[&block_offset]
+
+        // &block
+        // }
+    }
+}
+
+
 impl FieldStorage {
+    // TODO: split new into load and new, and load summaries accordingly
     pub fn new<'a>(series_name: &str, field_name: &str) -> FieldStorage {
         let (data_file, index_file) = FieldStorage::get_files(series_name, field_name, true);
 
+        // TODO: tmp
+        let (data_file2, _) = FieldStorage::get_files(series_name, field_name, true);
+
         // TODO: reorganize, this is redundant
-        let filename = format!("{}_{}", series_name, field_name);
+        let filename = format!("{}/{}", series_name, field_name);
         let index_filename = format!("{}_index", filename);
         let summaries = FieldStorageBlockSummary::load_all(&index_filename);
 
@@ -52,42 +97,27 @@ impl FieldStorage {
             curr_block: FieldStorageBlock::new(),
             data_file_handle: data_file,
             index_file_handle: index_file,
+            block_manager: BlockManager::new(data_file2),
         }
     }
 
-    pub fn read(&self) -> Vec<FieldEntry> {
+    pub fn read(&self, start: Option<i64>, end: Option<i64>) -> Vec<FieldEntry> {
         // TODO: use a modified binary search to narrow down which blocks we scan, using summaries
         let start_block = 0;
         let end_block = self.block_summaries.len();
 
         let records = (start_block..end_block + 1).flat_map(|offset| {
             let block = FieldStorageBlock::load(&self.data_file_handle, offset);
-            block.read(None, None)
+            block.read(start, end)
         }).collect();
 
         records
-
-        // for (i, summary) in self.block_summaries.iter().enumerate() {
-        //     let block = FieldStorageBlock::load(&self.data_file_handle, i);
-        //     let entries = block.read(None, None);
-        //     dbg!(entries);
-        //     // let summary = &self.block_summaries[i];
-        //
-        //     // FieldStorageBlock::load(self.data_file_handle)
-        //     //
-        //     //
-        // }
-        //
-        // vec![]
-
-        // let results = self.curr_block.read(None, None);
-        // dbg!(results);
-        // Ok(vec![])
     }
 
     pub fn insert(&mut self, entry: FieldEntry) {
         // we first attempt to write to the current block, and only write to disk if the block is
         // filled. TODO: what does this mean for data reliability?. TODO: move into curr block
+        // TODO: this logic should probably be moved into block manager, right? maybe? would at least remove need for file handle
         match self.curr_block.has_space() {
             true => self.curr_block.insert(entry),
             false => {
@@ -103,7 +133,7 @@ impl FieldStorage {
 
     /// Returns handles to a data file and an index file, respectively.
     fn get_files(series_name: &str, field_name: &str, append: bool) -> (File, File) {
-        let filename = format!("{}_{}", series_name, field_name);
+        let filename = format!("{}/{}", series_name, field_name);
         let data_file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -136,8 +166,7 @@ mod tests {
 
     #[test]
     fn it_inserts() {
-        fs::remove_file("test_series_value1");
-        fs::remove_file("test_series_value1_index");
+        fs::remove_dir("test_series");
         let mut s = FieldStorage::new("test_series", "value1");
 
         for i in 0..ENTRIES_PER_BLOCK * 10 + 1 {
@@ -148,7 +177,7 @@ mod tests {
     #[test]
     fn it_reads() {
         let s = FieldStorage::new("test_series", "value1");
-        let records = s.read();
+        let records = s.read(None, None);
         dbg!(records);
     }
 }

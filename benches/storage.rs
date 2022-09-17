@@ -8,14 +8,14 @@ use rtdb::storage::field_block::FieldStorageBlock;
 
 use rayon::prelude::*;
 use rtdb::storage::field_index::FieldStorageBlockSummary;
-use rtdb::storage::series::{merge_records, SeriesEntry};
+use rtdb::storage::series::{merge_records, SeriesEntry, SeriesStorage};
 use rtdb::util::arg_min_all;
 
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut s = FieldStorage::new("tests", "value");
-
     c.bench_function("write field [single]", |b| {
+        let mut s = FieldStorage::new("tests", "value");
+
         b.iter(|| {
             s.insert(FieldEntry { value: 123.0, time: 0 })
         })
@@ -32,7 +32,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("load summaries", |b| {
         b.iter(|| {
-            let summaries = FieldStorageBlockSummary::load_all("test_series_value1_index");
+            let summaries = FieldStorageBlockSummary::load_all("test_series/value1_index");
         })
     });
 
@@ -59,17 +59,32 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("arg min all", |b| {
         b.iter(|| {
-            arg_min_all(&vec![1, 0, 3, 1]);
+            arg_min_all(&Vec::<i64>::from([1, 0, 3, 1]));
         })
     });
 
-    c.bench_function("merge baseline", |b| {
+    c.bench_function("arg min all same", |b| {
         b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let entries = vec![a, b];
+            arg_min_all(&Vec::<i64>::from([1, 1, 1, 1]));
         })
     });
+
+
+    c.bench_function("arg min all same 2", |b| {
+        b.iter(|| {
+            arg_min_all(&Vec::<i64>::from([1, 1]));
+        })
+    });
+
+
+
+    // c.bench_function("merge baseline", |b| {
+    //     b.iter(|| {
+    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let entries = vec![a, b];
+    //     })
+    // });
 
     c.bench_function("merge aligned records", |b| {
         b.iter(|| {
@@ -92,15 +107,15 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
 
-    c.bench_function("merge 4 baseline", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-            let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let entries = vec![a, b, c, d];
-        })
-    });
+    // c.bench_function("merge 4 baseline", |b| {
+    //     b.iter(|| {
+    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+    //         let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let entries = vec![a, b, c, d];
+    //     })
+    // });
 
     c.bench_function("merge 4 aligned records", |b| {
         b.iter(|| {
@@ -125,6 +140,17 @@ fn criterion_benchmark(c: &mut Criterion) {
             let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
         })
     });
+
+
+    c.bench_function("read series", |b| {
+        let mut s = SeriesStorage::new("test_series");
+        s.insert(SeriesEntry { values: HashMap::from([("value1", 1.0), ("value2", 2.0)]), time: 1 });
+
+        b.iter(|| {
+            s.read(vec!["value1"]);
+        })
+    });
+
 
     // c.bench_function("merge alternating records", |b| {
     //     b.iter(|| {

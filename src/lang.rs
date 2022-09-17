@@ -1,3 +1,6 @@
+pub mod query;
+
+use std::collections::HashMap;
 use nom::{AsChar, Compare, InputLength, InputTake, InputTakeAtPosition, IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::*;
@@ -7,19 +10,42 @@ use nom::combinator::opt;
 use nom::error::ParseError;
 use nom::multi::many0;
 use nom::sequence::{preceded, terminated};
+use crate::storage::series::SeriesEntry;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Action<'a> {
     Select(SelectQuery<'a>),
-    Insert,
-    Unknown,
+    Insert(Insertion<'a>),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct SelectQuery<'a> {
     pub series: &'a str,
     pub fields: Vec<&'a str>,
+
+    pub start: Option<i64>,
+    pub end: Option<i64>,
+
     // TODO: filters, group by
+}
+
+
+// TODO: move to different file
+#[derive(Debug, PartialEq)]
+pub struct Insertion<'a> {
+    pub series: &'a str,
+    pub values: HashMap<String, f64>,
+    pub time: i64,
+}
+
+// TODO: move to different file
+impl Into<SeriesEntry> for Insertion<'_> {
+    fn into(self) -> SeriesEntry {
+        SeriesEntry {
+            values: self.values,
+            time: self.time,
+        }
+    }
 }
 
 pub fn parse(query: &mut String) -> Result<Action, &str> {
@@ -38,8 +64,12 @@ fn parse_action(input: &str) -> IResult<&str, Action> {
 
             Action::Select(query)
         }
-        "insert" => Action::Insert,
-        _ => Action::Unknown
+        "insert" => Action::Insert(Insertion {
+            series: "",
+            values: Default::default(),
+            time: 0,
+        }),
+        _ => panic!("asd"), // TODO
     };
 
     Ok((rem, action))
@@ -84,18 +114,10 @@ fn selection(input: &str) -> IResult<&str, SelectQuery> {
     Ok((rem, SelectQuery {
         series,
         fields: fields.unwrap_or(vec![]),
+        start: None,
+        end: None,
     }))
 }
-
-// fn series_fields(input: &str) -> IResult<&str, Option<&str>> {
-//     let (input, (_, field, _)) = tuple((tag::<&str, &str, ()>("["), opt(take_until(one_of("]"))), tag("]")))(input).unwrap();
-//     dbg!(input);
-//     // dbg!(a);
-//
-//     Ok((input, field))
-//     // tag("[")(input)
-// }
-
 
 pub fn trim<I, O, E: ParseError<I>, F>(
     mut inner: F,
