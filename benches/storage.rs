@@ -1,17 +1,12 @@
-use std::collections::HashMap;
 use std::fs::File;
 
 use criterion::{black_box, Criterion, criterion_group, criterion_main};
 
+use rtdb::lang::SelectQuery;
 use rtdb::storage::field::{FieldEntry, FieldStorage};
 use rtdb::storage::field_block::FieldStorageBlock;
-
-use rayon::prelude::*;
-use rtdb::lang::SelectQuery;
 use rtdb::storage::field_index::FieldStorageBlockSummary;
-use rtdb::storage::series::{merge_records, merge_records2, merge_records3, SeriesEntry, SeriesStorage};
-use rtdb::util::{arg_min_all, arg_min_all2};
-
+use rtdb::storage::series::{merge_records, merge_records3, SeriesStorage};
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("write field [single]", |b| {
@@ -58,56 +53,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("arg_min_all", |b| {
-        b.iter(|| {
-            black_box(
-                arg_min_all(&Vec::<i64>::from([1, 0, 3, 1]))
-            );
-        })
-    });
-
-    c.bench_function("arg_min_all2", |b| {
-        b.iter(|| {
-            black_box(
-                arg_min_all2(&Vec::<i64>::from([1, 0, 3, 1]))
-            );
-        })
-    });
-
-    c.bench_function("arg_min_all same", |b| {
-        b.iter(|| {
-            black_box(
-                arg_min_all(&Vec::<i64>::from([1, 1, 1, 1]))
-            );
-        })
-    });
-
-    c.bench_function("arg_min_all2 same", |b| {
-        b.iter(|| {
-            black_box(
-                arg_min_all2(&Vec::<i64>::from([1, 1, 1, 1]))
-            );
-        })
-    });
-
-
-    c.bench_function("arg_min_all same 2", |b| {
-        b.iter(|| {
-            black_box(
-                arg_min_all(&Vec::<i64>::from([1, 1]))
-            );
-        })
-    });
-
-    c.bench_function("arg_min_all2 same 2", |b| {
-        b.iter(|| {
-            black_box(
-                arg_min_all2(&Vec::<i64>::from([1, 1]))
-            );
-        })
-    });
-
-
     // c.bench_function("merge baseline", |b| {
     //     b.iter(|| {
     //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
@@ -123,16 +68,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             let entries = vec![a, b];
 
             let records = merge_records(entries, vec!["field1", "field2"]);
-        })
-    });
-
-    c.bench_function("merge2 aligned records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let entries = vec![a, b];
-
-            let records = merge_records2(entries, vec!["field1", "field2"]);
         })
     });
 
@@ -165,17 +100,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             let records = merge_records(entries, vec!["field1", "field2"]);
         })
     });
-
-    c.bench_function("merge2 alternating records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2 + 1, value: 1.0 }).collect();
-            let entries = vec![a, b];
-
-            let records = merge_records2(entries, vec!["field1", "field2"]);
-        })
-    });
-
 
     c.bench_function("merge3 alternating records", |b| {
         b.iter(|| {
@@ -246,19 +170,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
         })
     });
-
-    c.bench_function("merge2 4 alternating records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 1, value: 1.0 }).collect();
-            let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 2, value: 2.0 }).collect();
-            let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 3, value: 3.0 }).collect();
-            let entries = vec![a, b, c, d];
-
-            let records = merge_records2(entries, vec!["field1", "field2", "field3", "field4"]);
-        })
-    });
-
 
     c.bench_function("merge3 4 alternating records", |b| {
         b.iter(|| {
