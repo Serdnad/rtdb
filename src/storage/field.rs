@@ -108,16 +108,9 @@ impl FieldStorage {
         let start_block = 0;
         let end_block = self.block_summaries.len();
 
+        let mut block_manager = self.block_manager.lock().unwrap();
         let records = (start_block..end_block + 1).flat_map(|offset| {
-            let mut block_manager = self.block_manager.lock().unwrap();
-
-            // dbg!(&block_manager.blocks.len());
-
             let block = block_manager.load(offset);
-
-
-            // let block = FieldStorageBlock::load(&self.data_file_handle, offset);
-
             block.read(start, end)
         }).collect();
 

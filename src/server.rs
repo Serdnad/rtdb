@@ -49,25 +49,7 @@ async fn query(Query(mut params): Query<HashMap<String, String>>) -> impl IntoRe
     let result = engine.execute(Action::Select(select));
 
     let elapsed = start.elapsed();
-    println!("{}us", elapsed.as_micros());
-
-    // let q = String::new();
-    // let mut writer = Writer::from_writer(vec![]);
-    //
-    // match result {
-    //     ExecutionResult::Query(q) => {
-    //         println!("asd");
-    //         dbg!(&q.records.len());
-    //         q.records.iter().map(|r| writer.serialize(&r.values));
-    //     }
-    //     ExecutionResult::Insert(_) => {}
-    // };
-    //
-    //
-    // let data = String::from_utf8(writer.into_inner().unwrap()).unwrap();
-    //
-    // dbg!(&data);
-
+    // println!("{}us", elapsed.as_micros());
 
     (StatusCode::OK, serde_json::to_string(&result).unwrap())
 }

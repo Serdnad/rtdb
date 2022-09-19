@@ -3,11 +3,11 @@ use std::fs::{create_dir, OpenOptions, read, read_dir};
 use std::io::{Read, Write};
 use std::io::ErrorKind::AlreadyExists;
 use std::str;
-use crate::lang::SelectQuery;
 
+use crate::lang::SelectQuery;
 use crate::storage::field::{FieldEntry, FieldStorage};
 use crate::storage::SupportedDataType;
-use crate::util::arg_min_all;
+use crate::util::{arg_min_all, arg_min_all2};
 
 enum DataType {
     Float,
@@ -82,8 +82,6 @@ impl SeriesStorage<'_> {
     }
 
     pub fn load(series_name: &str) -> SeriesStorage {
-        // TODO: read indexes for field storages
-
         let files: Vec<_> = read_dir(series_name).unwrap().collect();
         let mut fields = vec![];
         for entry in files {
@@ -121,7 +119,7 @@ impl SeriesStorage<'_> {
             }
         }).collect();
 
-        merge_records2(records, fields)
+        merge_records3(records, fields)
     }
 
     pub fn insert(&mut self, entry: SeriesEntry) {
@@ -188,7 +186,7 @@ pub fn merge_records(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> 
 #[derive(Debug, serde::Serialize)]
 pub struct RecordCollection {
     fields: Vec<String>,
-    pub(crate) rows: Vec<Vec<f64>>,
+    pub(crate) rows: Vec<Vec<Option<f64>>>,
 }
 
 
@@ -198,11 +196,16 @@ pub struct RecordCollection {
 //     }
 // }
 
+// TODO [urgent]: this returns incorrect results when data points are not aligned in time
+// TODO [urgent]: this doesn't include timestamps...
 pub fn merge_records2(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> RecordCollection {
+    let field_count = names.len();
+
     let mut collection = RecordCollection { fields: names.iter().map(|&s| s.to_owned()).collect(), rows: vec![] };
 
     let mut rows = Vec::with_capacity(fields[0].len());
     let mut indices = vec![0; fields.len()];
+    // let next_elems: Vec<_> = fields.iter().map(|f| f[0]).collect();
 
     loop {
         let next_timestamps: Vec<_> = indices.iter().enumerate().map(|(f, &i)| {
@@ -213,7 +216,12 @@ pub fn merge_records2(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) ->
             break;
         }
 
-        let (_, next_field_indexes) = arg_min_all(&next_timestamps);
+        let (_, next_field_indexes) = arg_min_all2(&next_timestamps);
+
+        // let row = Vec::with_capacity(field_c)
+        // for i in 0..names.len() {
+        //
+        // }
 
         let row: Vec<_> = next_field_indexes.iter().rev().map(|&i| {
             let elem = fields[i][indices[i]].value;
@@ -230,7 +238,7 @@ pub fn merge_records2(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) ->
                 indices[i] += 1;
             }
 
-            elem
+            Some(elem)
         }).collect();
 
         rows.push(row);
@@ -240,16 +248,96 @@ pub fn merge_records2(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) ->
     collection
 }
 
+pub fn merge_records3(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> RecordCollection {
+    let field_count = names.len();
+
+    // let mut rows = vec![Vec::with_capacity(field_count); fields[0].len()];
+    let mut row_index = 0;
+    let mut rows = Vec::with_capacity(fields[0].len());
+
+    let mut next_elems: Vec<_> = fields.iter().map(|f| &f[0]).collect();
+    let mut indices = vec![0; fields.len()];
+
+    let mut exhausted_count = 0;
+
+    loop {
+        if exhausted_count == field_count {
+            break;
+        }
+
+        let mut earliest = next_elems[0].time;
+        for &e in &next_elems[1..] {
+            if e.time < earliest {
+                earliest = e.time;
+            }
+        }
+
+        // construct row, picking elements that match earliest, and filling None otherwise
+        // let mut row = rows.get_mut(row_index);
+        // if row.is_none() {
+        //     rows.extend(rows.extend(vec![Vec::with_capacity(field_count); fields[0].len()].iter()));
+        //     row = rows.get_mut(row_index);
+        // }
+
+        let mut row = Vec::with_capacity(field_count);
+        for i in 0..field_count {
+            let entry = next_elems[i];
+
+            if entry.time == earliest {
+                row.push(Some(entry.value));
+                indices[i] += 1;
+
+                if indices[i] == fields[i].len() {
+                    exhausted_count += 1;
+                    next_elems[i] = &FieldEntry { time: i64::MAX, value: 0.0 };
+                } else {
+                    next_elems[i] = &fields[i][indices[i]];
+                }
+            } else {
+                row.push(None);
+            }
+        }
+
+        rows.push(row);
+        // row_index += 1;
+    }
+
+    RecordCollection { fields: names.iter().map(|&s| s.to_owned()).collect(), rows }
+}
+
 
 #[cfg(test)]
 mod tests {
     use std::{fs, time};
     use std::collections::HashMap;
-    use crate::lang::SelectQuery;
 
+    use crate::lang::SelectQuery;
     use crate::storage::field::FieldEntry;
     use crate::storage::field_block::ENTRIES_PER_BLOCK;
-    use crate::storage::series::{merge_records, merge_records2, SeriesEntry, SeriesStorage};
+    use crate::storage::series::{merge_records, merge_records2, merge_records3, SeriesEntry, SeriesStorage};
+
+    // TODO: update these tests when we're including timestamps
+    #[test]
+    fn merge3() {
+        let entries = vec![
+            vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 2 }],
+            vec![FieldEntry { value: 3.0, time: 1 }, FieldEntry { value: 4.0, time: 2 }],
+        ];
+
+        let records = merge_records3(entries, vec!["field1", "field2"]);
+        assert_eq!(records.rows, vec![vec![Some(1.0), Some(3.0)], vec![Some(2.0), Some(4.0)]])
+    }
+
+    #[test]
+    fn merge3_mixed() {
+        let entries = vec![
+            vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 2 }, FieldEntry { value: 5.0, time: 3 }],
+            vec![FieldEntry { value: 3.0, time: 1 }, FieldEntry { value: 4.0, time: 2 }],
+        ];
+
+        let records = merge_records3(entries, vec!["field1", "field2"]);
+        assert_eq!(records.rows, vec![vec![Some(1.0), Some(3.0)], vec![Some(2.0), Some(4.0)], vec![Some(5.0), None]])
+    }
 
     #[test]
     fn merge2() {
@@ -321,6 +409,7 @@ mod tests {
     }
 
 
+    // TODO: we can delete these after we've updated merge3 tests
     #[test]
     fn merge_aligned() {
         let entries = vec![
