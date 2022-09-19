@@ -1,7 +1,8 @@
-use std::str::{from_utf8, Utf8Error};
+use std::str::from_utf8;
+
 use nom::{AsBytes, ParseTo};
-use crate::execution::QueryResult;
-use crate::lang::{Action, SelectQuery};
+
+use crate::lang::SelectQuery;
 
 /// Parse a full SELECT query.
 pub fn parse_select(raw_query: &mut str) -> SelectQuery {

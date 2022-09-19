@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fs::{create_dir, read, read_dir};
+use std::fs::{create_dir, OpenOptions, read, read_dir};
 use std::io::{Read, Write};
 use std::io::ErrorKind::AlreadyExists;
 use std::str;
@@ -44,26 +44,20 @@ impl SeriesSummary<'_> {
             name,
             fields: data.split(" ").collect::<Vec<&str>>().iter().map(|&s| s.to_owned()).collect(),
         }
-
-
-        // let mut bytes = read(name); // TODO: file name + path
-        // let summary = rkyv::from_bytes::<SeriesSummary>(&bytes[..]).expect("failed to unarchive series summary");
-        //
-        // summary
     }
 
     /// Write series summary to disk
     fn write(&self) {
-        // let mut f = OpenOptions::new()
-        //     .create(true)
-        //     .write(true)
-        //     .open(self.name)
-        //     .unwrap(); // tODO: keep handle and rename
+        let mut f = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(self.name)
+            .unwrap(); // tODO: keep handle and rename
         //
         // // let data = rkyv::to_bytes(&self).unwrap();
         // // f.write(&data[..]);
         //
-        // f.write(self.fields.join(" ").into_bytes().as_slice());
+        f.write(self.fields.join(" ").into_bytes().as_slice());
     }
 }
 
@@ -109,7 +103,7 @@ impl SeriesStorage<'_> {
         }
     }
 
-    pub fn read(&self, query: SelectQuery) -> Vec<SeriesEntry> {
+    pub fn read(&self, query: SelectQuery) -> RecordCollection {
         let fields = match query.fields.is_empty() {
             true => self.field_storages.keys().map(|s| s.as_str()).collect(), // TODO: we should just keep this around
             false => query.fields,
@@ -127,7 +121,7 @@ impl SeriesStorage<'_> {
             }
         }).collect();
 
-        merge_records(records, fields)
+        merge_records2(records, fields)
     }
 
     pub fn insert(&mut self, entry: SeriesEntry) {
@@ -149,11 +143,9 @@ impl SeriesStorage<'_> {
 /// Records from different fields with identical timestamps should be placed into the same
 /// SeriesEntry.
 ///
-/// TODO: write unit tests (and benchmarks) for this, this is a core function
-///
 /// TODO: should this go into a util file?
 pub fn merge_records(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> Vec<SeriesEntry> {
-    let mut merged_records = vec![];
+    let mut merged_records = Vec::with_capacity(fields[0].len());
     let mut indices = vec![0; fields.len()];
 
     loop {
@@ -193,6 +185,61 @@ pub fn merge_records(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> 
     merged_records
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct RecordCollection {
+    fields: Vec<String>,
+    pub(crate) rows: Vec<Vec<f64>>,
+}
+
+
+// impl RecordCollection{
+//     pub fn to_csv() {
+//
+//     }
+// }
+
+pub fn merge_records2(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> RecordCollection {
+    let mut collection = RecordCollection { fields: names.iter().map(|&s| s.to_owned()).collect(), rows: vec![] };
+
+    let mut rows = Vec::with_capacity(fields[0].len());
+    let mut indices = vec![0; fields.len()];
+
+    loop {
+        let next_timestamps: Vec<_> = indices.iter().enumerate().map(|(f, &i)| {
+            fields[f][i].time
+        }).collect();
+
+        if next_timestamps.is_empty() {
+            break;
+        }
+
+        let (_, next_field_indexes) = arg_min_all(&next_timestamps);
+
+        let row: Vec<_> = next_field_indexes.iter().rev().map(|&i| {
+            let elem = fields[i][indices[i]].value;
+
+            if indices[i] + 1 == fields[i].len() {
+                // if fields.len() == 1 {
+                //     println!("DONE!");
+                // }
+
+                fields.swap_remove(i);
+                indices.swap_remove(i);
+                names.swap_remove(i);
+            } else {
+                indices[i] += 1;
+            }
+
+            elem
+        }).collect();
+
+        rows.push(row);
+    }
+
+    collection.rows = rows;
+    collection
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -202,7 +249,18 @@ mod tests {
 
     use crate::storage::field::FieldEntry;
     use crate::storage::field_block::ENTRIES_PER_BLOCK;
-    use crate::storage::series::{merge_records, SeriesEntry, SeriesStorage};
+    use crate::storage::series::{merge_records, merge_records2, SeriesEntry, SeriesStorage};
+
+    #[test]
+    fn merge2() {
+        let entries = vec![
+            vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 2 }],
+            vec![FieldEntry { value: 3.0, time: 1 }, FieldEntry { value: 4.0, time: 2 }],
+        ];
+
+        let rows = merge_records2(entries, vec!["field1", "field2"]);
+        dbg!(rows);
+    }
 
     fn clear_tmp_files() {
         fs::remove_dir("test_series");
@@ -253,13 +311,13 @@ mod tests {
         //     });
         // }
 
+        dbg!(&s.field_storages.get("value1").unwrap());
         let r = s.read(SelectQuery { series: "test_series", fields: vec!["value1", "value2"], start: None, end: None });
-        dbg!(r.len());
-        dbg!(&s.field_storages.get("value1").unwrap().block_manager);
+        dbg!(r);
 
+        dbg!(&s.field_storages.get("value1").unwrap());
         let r = s.read(SelectQuery { series: "test_series", fields: vec!["value1", "value2"], start: None, end: None });
-        dbg!(r.len());
-        dbg!(&s.field_storages.get("value1").unwrap().block_manager);
+        dbg!(r);
     }
 
 

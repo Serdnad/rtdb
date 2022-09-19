@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{Read};
 use std::os::unix::fs::FileExt;
+use std::sync::{Arc, Mutex};
 
 // bytecheck can be used to validate your data if you want
 use bytecheck::CheckBytes;
@@ -37,13 +38,13 @@ pub struct FieldStorage {
     curr_block: FieldStorageBlock,
 
     // todo
-    pub block_manager: BlockManager,
+    block_manager: Arc<Mutex<BlockManager>>,
 }
 
 /// BlockManager is responsible for intelligently caching field storage blocks in memory, loading
 /// them from disk when necessary.
 #[derive(Debug)]
-pub struct BlockManager {
+struct BlockManager {
     data_file: File,
 
     // key is the block index
@@ -67,6 +68,7 @@ impl BlockManager {
         // match self.blocks.get(&block_offset) {
         //     Some(block) => block,
         //     None => {
+        // println!("LOAD BLOCK!");
         let block = FieldStorageBlock::load(&self.data_file, block_offset);
         self.blocks.insert(block_offset, block);
         &self.blocks[&block_offset]
@@ -97,7 +99,7 @@ impl FieldStorage {
             curr_block: FieldStorageBlock::new(),
             data_file_handle: data_file,
             index_file_handle: index_file,
-            block_manager: BlockManager::new(data_file2),
+            block_manager: Arc::new(Mutex::new(BlockManager::new(data_file2))),
         }
     }
 
@@ -107,7 +109,15 @@ impl FieldStorage {
         let end_block = self.block_summaries.len();
 
         let records = (start_block..end_block + 1).flat_map(|offset| {
-            let block = FieldStorageBlock::load(&self.data_file_handle, offset);
+            let mut block_manager = self.block_manager.lock().unwrap();
+
+            // dbg!(&block_manager.blocks.len());
+
+            let block = block_manager.load(offset);
+
+
+            // let block = FieldStorageBlock::load(&self.data_file_handle, offset);
+
             block.read(start, end)
         }).collect();
 

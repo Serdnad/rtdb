@@ -7,8 +7,9 @@ use rtdb::storage::field::{FieldEntry, FieldStorage};
 use rtdb::storage::field_block::FieldStorageBlock;
 
 use rayon::prelude::*;
+use rtdb::lang::SelectQuery;
 use rtdb::storage::field_index::FieldStorageBlockSummary;
-use rtdb::storage::series::{merge_records, SeriesEntry, SeriesStorage};
+use rtdb::storage::series::{merge_records, merge_records2, SeriesEntry, SeriesStorage};
 use rtdb::util::arg_min_all;
 
 
@@ -40,7 +41,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let s = FieldStorage::new("test_series", "value1");
 
         b.iter(|| {
-            let records = s.read();
+            let records = s.read(None, None);
         })
     });
 
@@ -77,7 +78,6 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
 
-
     // c.bench_function("merge baseline", |b| {
     //     b.iter(|| {
     //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
@@ -96,6 +96,16 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
+    c.bench_function("merge2 aligned records", |b| {
+        b.iter(|| {
+            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+            let entries = vec![a, b];
+
+            let records = merge_records2(entries, vec!["field1", "field2"]);
+        })
+    });
+
     c.bench_function("merge alternating records", |b| {
         b.iter(|| {
             let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2, value: 0.0 }).collect();
@@ -103,6 +113,16 @@ fn criterion_benchmark(c: &mut Criterion) {
             let entries = vec![a, b];
 
             let records = merge_records(entries, vec!["field1", "field2"]);
+        })
+    });
+
+    c.bench_function("merge2 alternating records", |b| {
+        b.iter(|| {
+            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2, value: 0.0 }).collect();
+            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2 + 1, value: 1.0 }).collect();
+            let entries = vec![a, b];
+
+            let records = merge_records2(entries, vec!["field1", "field2"]);
         })
     });
 
@@ -129,6 +149,18 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
+    c.bench_function("merge2 4 aligned records", |b| {
+        b.iter(|| {
+            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+            let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+            let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+            let entries = vec![a, b, c, d];
+
+            let records = merge_records2(entries, vec!["field1", "field2", "field3", "field4"]);
+        })
+    });
+
     c.bench_function("merge 4 alternating records", |b| {
         b.iter(|| {
             let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4, value: 0.0 }).collect();
@@ -141,16 +173,35 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-
-    c.bench_function("read series", |b| {
-        let mut s = SeriesStorage::new("test_series");
-        s.insert(SeriesEntry { values: HashMap::from([("value1", 1.0), ("value2", 2.0)]), time: 1 });
-
+    c.bench_function("merge2 4 alternating records", |b| {
         b.iter(|| {
-            s.read(vec!["value1"]);
+            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4, value: 0.0 }).collect();
+            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 1, value: 1.0 }).collect();
+            let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 2, value: 2.0 }).collect();
+            let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 3, value: 3.0 }).collect();
+            let entries = vec![a, b, c, d];
+
+            let records = merge_records2(entries, vec!["field1", "field2", "field3", "field4"]);
         })
     });
 
+
+    c.bench_function("read series", |b| {
+        let mut s = SeriesStorage::load("test_series");
+        // s.insert(SeriesEntry { values: HashMap::from([("value1", 1.0), ("value2", 2.0)]), time: 1 });
+
+        b.iter(|| {
+            s.read(SelectQuery {
+                series: "test_series",
+                fields: vec![],
+                start: None,
+                end: None,
+            });
+        })
+    });
+
+
+    //
 
     // c.bench_function("merge alternating records", |b| {
     //     b.iter(|| {

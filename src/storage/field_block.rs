@@ -1,4 +1,4 @@
-use std::fs::{File, read};
+use std::fs::File;
 use std::io::Write;
 use std::mem::size_of;
 use std::os::unix::fs::FileExt;
@@ -138,6 +138,7 @@ impl FieldStorageBlock {
 #[cfg(test)]
 mod tests {
     use std::fs::File;
+
     use crate::storage::field::{FieldEntry, FieldStorage};
     use crate::storage::field_block::FieldStorageBlock;
 

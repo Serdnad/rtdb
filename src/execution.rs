@@ -1,12 +1,17 @@
-use serde::{Serialize};
+use std::collections::HashMap;
+use std::hash::Hash;
+
+use serde::Serialize;
+use tokio::time;
 
 use crate::lang::{Action, Insertion, SelectQuery};
-use crate::lang::Action::Insert;
-use crate::storage::series::{SeriesEntry, SeriesStorage};
+use crate::storage::series::{RecordCollection, SeriesEntry, SeriesStorage};
 
 mod query;
 
-pub struct ExecutionEngine {}
+pub struct ExecutionEngine<'a> {
+    series_storages: HashMap<String, SeriesStorage<'a>>,
+}
 
 #[derive(Serialize)]
 pub enum ExecutionResult {
@@ -17,7 +22,8 @@ pub enum ExecutionResult {
 #[derive(Serialize)]
 pub struct QueryResult {
     pub count: usize,
-    pub records: Vec<SeriesEntry>,
+    // pub fields: Vec<String>
+    pub records: RecordCollection,
 }
 
 #[derive(Serialize)]
@@ -25,27 +31,44 @@ pub struct InsertionResult {
     // pub rows_inserted: u32,
 }
 
-struct SeriesStorageCache {}
+impl ExecutionEngine<'_> {
+    pub fn new<'a>() -> ExecutionEngine<'a> {
+        ExecutionEngine { series_storages: HashMap::new() }
+    }
 
-impl ExecutionEngine {
-    pub fn execute(action: Action) -> ExecutionResult {
+    pub fn execute(&mut self, action: Action) -> ExecutionResult {
         match action {
-            Action::Select(query) => ExecutionEngine::execute_select(query),
-            Action::Insert(insertion) => ExecutionEngine::execute_insert(insertion),
+            Action::Select(query) => self.execute_select(query),
+            Action::Insert(insertion) => self.execute_insert(insertion),
         }
     }
 
-    fn execute_select(query: SelectQuery) -> ExecutionResult {
+    fn execute_select(&mut self, query: SelectQuery) -> ExecutionResult {
+        // TODO: tmp
+        if !self.series_storages.contains_key(&query.series.to_owned()) {
+            println!("LOAD SERIES");
+            self.series_storages.insert(query.series.to_owned(), SeriesStorage::load("test_series")); // TODO: bad
+        }
+
+
         // TODO: keep series storages so we don't have to load them all the time
-        let storage = SeriesStorage::load(query.series);
+        let storage = &self.series_storages[&query.series.to_owned()];
+
+
+        // let start = time::Instant::now();
+
         let records = storage.read(query);
 
-        let count = &records.len();
+
+        // let elapsed = start.elapsed();
+        // println!("{}us", elapsed.as_micros());
+
+        let count = &records.rows.len();
         ExecutionResult::Query(QueryResult { records, count: *count })
     }
 
 
-    fn execute_insert(query: Insertion) -> ExecutionResult {
+    fn execute_insert(&self, query: Insertion) -> ExecutionResult {
         // TODO: keep series storages so we don't have to load them all the time
         let mut storage = SeriesStorage::load(query.series);
         storage.insert(query.into());

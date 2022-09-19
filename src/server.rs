@@ -1,14 +1,19 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use axum::http::StatusCode;
-use axum::{Json, Router};
+use std::sync::{Arc, RwLock};
+
+use axum::Router;
 use axum::extract::Query;
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::get;
+use csv::Writer;
+use lazy_static::lazy_static;
 use log::info;
 use tokio::time;
-use crate::execution::ExecutionEngine;
-use crate::lang::{Action, parse};
+
+use crate::execution::{ExecutionEngine, ExecutionResult};
+use crate::lang::Action;
 use crate::lang::query::parse_select;
 
 pub struct HttpServer {}
@@ -38,16 +43,38 @@ async fn root() -> &'static str {
 async fn query(Query(mut params): Query<HashMap<String, String>>) -> impl IntoResponse {
     let start = time::Instant::now();
     let mut query = params.get_mut("query").unwrap();
-    // println!("{}", &query);
-    // let res = parse(&mut query).unwrap();
-    let q = parse_select(&mut query);
+    let select = parse_select(&mut query);
 
-
-    let result = ExecutionEngine::execute(Action::Select(q));
+    let mut engine = ENGINE.write().unwrap();
+    let result = engine.execute(Action::Select(select));
 
     let elapsed = start.elapsed();
     println!("{}us", elapsed.as_micros());
 
+    // let q = String::new();
+    // let mut writer = Writer::from_writer(vec![]);
+    //
+    // match result {
+    //     ExecutionResult::Query(q) => {
+    //         println!("asd");
+    //         dbg!(&q.records.len());
+    //         q.records.iter().map(|r| writer.serialize(&r.values));
+    //     }
+    //     ExecutionResult::Insert(_) => {}
+    // };
+    //
+    //
+    // let data = String::from_utf8(writer.into_inner().unwrap()).unwrap();
+    //
+    // dbg!(&data);
 
-    (StatusCode::OK, Json(result))
+
+    (StatusCode::OK, serde_json::to_string(&result).unwrap())
+}
+
+// TODO: move
+lazy_static! {
+    static ref ENGINE: Arc<RwLock<ExecutionEngine<'static>>> = {
+        Arc::new(RwLock::new(ExecutionEngine::new()))
+    };
 }
