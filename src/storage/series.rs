@@ -7,7 +7,7 @@ use std::str;
 use crate::lang::SelectQuery;
 use crate::storage::field::{FieldEntry, FieldStorage};
 use crate::storage::SupportedDataType;
-use crate::util::{arg_min_all, arg_min_all2};
+use crate::util::{arg_min_all2};
 
 enum DataType {
     Float,
@@ -155,8 +155,7 @@ pub fn merge_records(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> 
             break;
         }
 
-        let (min, next_field_indexes) = arg_min_all(&next_timestamps);
-        let next_time = min.unwrap();
+        let (next_time, next_field_indexes) = arg_min_all2(&next_timestamps);
 
         let next_fields: HashMap<_, _> = next_field_indexes.iter().rev().map(|&i| {
             let elem = (names[i].to_owned(), fields[i][indices[i]].value);
@@ -248,7 +247,7 @@ mod tests {
     use crate::lang::SelectQuery;
     use crate::storage::field::FieldEntry;
     use crate::storage::field_block::ENTRIES_PER_BLOCK;
-    use crate::storage::series::{merge_records, merge_records2, merge_records3, SeriesEntry, SeriesStorage};
+    use crate::storage::series::{merge_records, merge_records3, SeriesEntry, SeriesStorage};
 
     fn clear_tmp_files() {
         fs::remove_dir("test_series");

@@ -34,16 +34,7 @@ pub fn arg_min_all2(values: &[i64]) -> (i64, Vec<usize>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::{arg_min_all, arg_min_all2};
-
-    #[test]
-    fn test_arg_min_all() {
-        assert_eq!(arg_min_all(&Vec::<i64>::new()), (None, vec![]));
-        assert_eq!(arg_min_all(&vec![1, 1, 1]), (Some(1), vec![0, 1, 2]));
-        assert_eq!(arg_min_all(&vec![2, 1, 3]), (Some(1), vec![1]));
-        assert_eq!(arg_min_all(&vec![1, 1, 3]), (Some(1), vec![0, 1]));
-    }
-
+    use crate::util::{arg_min_all2};
 
     #[test]
     fn test_arg_min_all2() {
