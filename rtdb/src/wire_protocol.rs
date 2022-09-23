@@ -3,7 +3,7 @@
 
 pub mod query;
 
-use byteorder::ReadBytesExt;
+
 
 #[derive(Debug, Eq, PartialEq)]
 #[repr(u8)]

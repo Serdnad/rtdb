@@ -48,7 +48,7 @@ async fn query(Query(mut params): Query<HashMap<String, String>>) -> impl IntoRe
     // TOOD: move parsing into execution engine?
     let select = parse_select(&mut query);
 
-    let mut engine = ENGINE.read().await;
+    let engine = ENGINE.read().await;
     let result = engine.execute(Action::Select(select));
 
     let elapsed = start.elapsed();
@@ -63,7 +63,7 @@ async fn insert(Query(mut params): Query<HashMap<String, String>>) -> impl IntoR
     let mut query = params.get_mut("query").unwrap();
     let insertion = parse_insert(&mut query);
 
-    let mut engine = ENGINE.write().await;
+    let engine = ENGINE.write().await;
     let result = engine.execute(Action::Insert(insertion));
 
     let elapsed = start.elapsed();

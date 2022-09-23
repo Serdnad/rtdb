@@ -1,9 +1,9 @@
 use std::io;
-use std::io::{Read, Write};
+use std::io::{Read};
 use std::str::from_utf8;
 
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use tokio::io::AsyncWriteExt;
+use byteorder::{BigEndian, ReadBytesExt};
+
 
 use crate::execution::QueryResult;
 use crate::network::ACTION_QUERY;
@@ -62,7 +62,7 @@ pub fn build_query_command(query: &str) -> Vec<u8> {
 /// [DATA_TYPE] [NAME]
 /// u8          PStr(u8)
 #[inline]
-fn write_field_description(mut buffer: &mut Vec<u8>, name: &str, data_type: DataType) {
+fn write_field_description(buffer: &mut Vec<u8>, name: &str, data_type: DataType) {
     buffer.push(data_type as u8);
     buffer.push(name.len() as u8);
     buffer.extend(name.as_bytes());
@@ -116,7 +116,7 @@ fn parse_field_descriptions(buffer: &mut ByteReader) -> Result<Vec<Field>, ()> {
 
 // TODO: generalizing this might be a pain... but oh well
 // TODO: figure out what to do about null values
-fn write_data_row(mut buffer: &mut Vec<u8>, row: &DataRow) {
+fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow) {
     let time = row.time;
     buffer.extend(time.to_be_bytes());
 
@@ -228,7 +228,7 @@ mod tests {
             },
         };
 
-        let mut buffer = build_query_result(&result);
+        let buffer = build_query_result(&result);
 
         let mut cursor = ByteReader::new(&buffer);
         let result = parse_query_result(&mut cursor);
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn query_cmd() {
-        let mut cmd = build_query_command("SELECT test_series");
+        let cmd = build_query_command("SELECT test_series");
         assert_eq!(cmd.len(), 21);
         assert_eq!(cmd[0], ACTION_QUERY);
         assert_eq!(cmd[1..3], [0, 18]);
@@ -248,7 +248,7 @@ mod tests {
     #[test]
     fn gen_field_desc() {
         let mut buffer = vec![];
-        let col_summary = write_field_description(&mut buffer, "field1", DataType::Float);
+        let _col_summary = write_field_description(&mut buffer, "field1", DataType::Float);
         assert_eq!(buffer[0], 0);
         assert_eq!(buffer[1], 6);
         assert_eq!(from_utf8(&buffer[2..]).unwrap(), "field1");
@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn parse_field_desc() {
         let mut buffer = vec![];
-        let mut col_summary = write_field_description(&mut buffer, "field1", DataType::Float);
+        let _col_summary = write_field_description(&mut buffer, "field1", DataType::Float);
 
         let mut cursor = ByteReader::new(&buffer);
         let col_summary = parse_field_description(&mut cursor).unwrap();

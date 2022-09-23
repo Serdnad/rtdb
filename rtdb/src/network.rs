@@ -16,7 +16,7 @@ pub async fn start_tcp_listener() {
 
     loop {
         match listener.accept().await {
-            Ok((mut stream, addr)) => {
+            Ok((stream, addr)) => {
                 println!("new cli: {:?}", addr);
 
                 pool.add(stream);
@@ -32,7 +32,7 @@ pub const ACTION_QUERY: u8 = 0x01;
 pub const ACTION_INSERT: u8 = 0x02;
 
 /// Consumes a UCSD string, with a length specified as a u16.
-async fn read_string(mut stream: &mut TcpStream) -> String {
+async fn read_string(stream: &mut TcpStream) -> String {
     let len = stream.read_u16().await.unwrap();
     let mut buffer = vec![0; len as usize];
 

@@ -22,13 +22,13 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         b.iter(|| {
             // let blocks: Vec<FieldStorageBlock> = (0..100).map(|offset| FieldStorageBlock::load(&f, offset)).collect();
-            let block = FieldStorageBlock::load(&f, 0);
+            let _block = FieldStorageBlock::load(&f, 0);
         })
     });
 
     c.bench_function("load summaries", |b| {
         b.iter(|| {
-            let summaries = FieldStorageBlockSummary::load_all("test_series/value1_index");
+            let _summaries = FieldStorageBlockSummary::load_all("test_series/value1_index");
         })
     });
 
@@ -36,7 +36,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let s = FieldStorage::new("test_series", "value1");
 
         b.iter(|| {
-            let records = s.read(None, None);
+            let _records = s.read(None, None);
         })
     });
 
@@ -77,7 +77,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             let b: Vec<_> = (0..10000).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
             let entries = vec![a, b];
 
-            let records = merge_records3(entries, vec!["field1", "field2"]);
+            let _records = merge_records3(entries, vec!["field1", "field2"]);
         })
     });
 
@@ -87,7 +87,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
             let entries = vec![a, b];
 
-            let records = merge_records3(entries, vec!["field1", "field2"]);
+            let _records = merge_records3(entries, vec!["field1", "field2"]);
         })
     });
 
@@ -107,7 +107,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2 + 1, value: 1.0 }).collect();
             let entries = vec![a, b];
 
-            let records = merge_records3(entries, vec!["field1", "field2"]);
+            let _records = merge_records3(entries, vec!["field1", "field2"]);
         })
     });
 
@@ -155,7 +155,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
             let entries = vec![a, b, c, d];
 
-            let records = merge_records3(entries, vec!["field1", "field2", "field3", "field4"]);
+            let _records = merge_records3(entries, vec!["field1", "field2", "field3", "field4"]);
         })
     });
 
@@ -179,13 +179,13 @@ fn criterion_benchmark(c: &mut Criterion) {
             let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 3, value: 3.0 }).collect();
             let entries = vec![a, b, c, d];
 
-            let records = merge_records3(entries, vec!["field1", "field2", "field3", "field4"]);
+            let _records = merge_records3(entries, vec!["field1", "field2", "field3", "field4"]);
         })
     });
 
 
     c.bench_function("read series", |b| {
-        let mut s = SeriesStorage::load("test_series");
+        let s = SeriesStorage::load("test_series");
         // s.insert(SeriesEntry { values: HashMap::from([("value1", 1.0), ("value2", 2.0)]), time: 1 });
 
         b.iter(|| {

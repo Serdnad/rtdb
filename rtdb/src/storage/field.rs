@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read};
-use std::os::unix::fs::FileExt;
+
 use std::sync::{Arc, Mutex};
 
 // bytecheck can be used to validate your data if you want
@@ -10,7 +10,7 @@ use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::storage::field_block::FieldStorageBlock;
 use crate::storage::field_index::FieldStorageBlockSummary;
-use crate::storage::SupportedDataType;
+
 
 #[derive(Archive, Clone, Deserialize, Serialize, Debug, PartialEq)]
 #[archive(compare(PartialEq))]

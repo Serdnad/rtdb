@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 
 #[inline]
-pub fn advance_whitespace(s: &[u8], mut index: &mut usize) {
+pub fn advance_whitespace(s: &[u8], index: &mut usize) {
     let mut i = *index;
     while i < s.len() && s[i] == b' ' {
         i += 1;

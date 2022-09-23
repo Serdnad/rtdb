@@ -61,7 +61,7 @@ impl Connection {
                     let start = time::Instant::now();
                     let select = parse_select(&mut msg);
 
-                    let mut engine = ENGINE.read().await;
+                    let engine = ENGINE.read().await;
                     let result = engine.execute(Action::Select(select));
 
                     let elapsed = start.elapsed();

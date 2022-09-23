@@ -32,7 +32,7 @@ impl FieldStorageBlockSummary {
     /// Load all block summaries from a given index file.
     /// TODO: there may? be a faster way to do this
     pub fn load_all(path: &str) -> Vec<FieldStorageBlockSummary> {
-        let mut bytes = read(path).unwrap();
+        let bytes = read(path).unwrap();
 
         let mut summaries = Vec::with_capacity(bytes.len() / size_of::<FieldStorageBlockSummary>());
 

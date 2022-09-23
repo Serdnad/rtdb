@@ -6,7 +6,7 @@ use std::str;
 
 use crate::lang::SelectQuery;
 use crate::storage::field::{FieldEntry, FieldStorage};
-use crate::storage::SupportedDataType;
+
 
 enum DataType {
     Float,
@@ -161,7 +161,7 @@ pub struct DataRow {
 }
 
 // TODO [urgent]: this doesn't include timestamps...
-pub fn merge_records3(mut fields: Vec<Vec<FieldEntry>>, mut names: Vec<&str>) -> RecordCollection {
+pub fn merge_records3(fields: Vec<Vec<FieldEntry>>, names: Vec<&str>) -> RecordCollection {
     let field_count = names.len();
 
     let mut rows = Vec::with_capacity(fields[0].len());
@@ -261,7 +261,7 @@ mod tests {
 
         let mut s = SeriesStorage::new("test_series");
 
-        for i in 0..ENTRIES_PER_BLOCK * 5 + 1 {
+        for _i in 0..ENTRIES_PER_BLOCK * 5 + 1 {
             let entry1 = SeriesEntry {
                 fields: vec!["field1".to_owned(), "field2".to_owned()],
                 values: vec![1.0, 2.0],

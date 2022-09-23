@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 
-use nom::{AsChar, Compare, InputLength, InputTake, InputTakeAtPosition, IResult, Parser};
+
+use nom::{AsChar, InputTakeAtPosition, IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::*;
 use nom::character::complete::{space0, space1};
@@ -11,7 +11,7 @@ use nom::multi::many0;
 use nom::sequence::{preceded, terminated};
 use crate::lang::insert::Insertion;
 
-use crate::storage::series::SeriesEntry;
+
 
 
 mod util;
@@ -56,7 +56,7 @@ pub struct SelectQuery<'a> {
 
 pub fn parse(query: &mut String) -> Result<Action, &str> {
     query.make_ascii_lowercase();
-    let (rem, action) = parse_action(query).unwrap();
+    let (_rem, action) = parse_action(query).unwrap();
     // TODO: check rem, and replace unwrap
     Ok(action)
 }
@@ -66,7 +66,7 @@ fn parse_action(input: &str) -> IResult<&str, Action> {
     let action = match action.as_ref() {
         "select" => {
             let (rem, _) = space1(rem)?;
-            let (rem, query) = select_query(rem)?;
+            let (_rem, query) = select_query(rem)?;
 
             Action::Select(query)
         }
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn parse_fields() {
-        let s1 = "[]";
+        let _s1 = "[]";
         let s2 = "[field1]";
         let s3 = "[field1,field2]";
         let s4 = "[field1, field2]";
@@ -247,24 +247,24 @@ mod tests {
         let s2 = "select test_series[field1]";
         let s3 = "select test_series[field1, field2]";
 
-        let (rem, action) = parse_action(s1).unwrap();
+        let (_rem, action) = parse_action(s1).unwrap();
         let query = if let Action::Select(query) = action { query } else { panic!() };
         assert_eq!(query.series, "test_series");
         assert_eq!(query.fields, Vec::<String>::new());
 
-        let (rem, action) = parse_action(s2).unwrap();
+        let (_rem, action) = parse_action(s2).unwrap();
         let query = if let Action::Select(query) = action { query } else { panic!() };
         assert_eq!(query.series, "test_series");
         assert_eq!(query.fields, vec!["field1"]);
 
-        let (rem, action) = parse_action(s3).unwrap();
+        let (_rem, action) = parse_action(s3).unwrap();
         let query = if let Action::Select(query) = action { query } else { panic!() };
         assert_eq!(query.series, "test_series");
         assert_eq!(query.fields, vec!["field1", "field2"]);
     }
 }
 
-fn parse2(query: &str) {
+fn parse2(_query: &str) {
     // if query.starts_with("")
 // match query. { }
 }
@@ -297,7 +297,7 @@ mod tests2 {
 
     #[test]
     fn parse_query_action() {
-        let s1 = "SELECT blah";
+        let _s1 = "SELECT blah";
     }
 
 
@@ -314,7 +314,7 @@ mod tests2 {
 
     #[test]
     fn parse_fields() {
-        let s1 = "[]";
+        let _s1 = "[]";
         let s2 = "[field1]";
         let s3 = "[field1,field2]";
         let s4 = "[field1, field2]";
@@ -362,17 +362,17 @@ mod tests2 {
         let s2 = "select test_series[field1]";
         let s3 = "select test_series[field1, field2]";
 
-        let (rem, action) = parse_action(s1).unwrap();
+        let (_rem, action) = parse_action(s1).unwrap();
         let query = if let Action::Select(query) = action { query } else { panic!() };
         assert_eq!(query.series, "test_series");
         assert_eq!(query.fields, Vec::<String>::new());
 
-        let (rem, action) = parse_action(s2).unwrap();
+        let (_rem, action) = parse_action(s2).unwrap();
         let query = if let Action::Select(query) = action { query } else { panic!() };
         assert_eq!(query.series, "test_series");
         assert_eq!(query.fields, vec!["field1"]);
 
-        let (rem, action) = parse_action(s3).unwrap();
+        let (_rem, action) = parse_action(s3).unwrap();
         let query = if let Action::Select(query) = action { query } else { panic!() };
         assert_eq!(query.series, "test_series");
         assert_eq!(query.fields, vec!["field1", "field2"]);

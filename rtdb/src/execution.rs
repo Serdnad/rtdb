@@ -1,13 +1,13 @@
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
-use tokio::time;
+
 
 use crate::lang::{Action, SelectQuery};
 use crate::lang::insert::Insertion;
-use crate::storage::series::{RecordCollection, SeriesEntry, SeriesStorage};
+use crate::storage::series::{RecordCollection, SeriesStorage};
 
 mod query;
 
@@ -67,7 +67,7 @@ impl ExecutionEngine<'_> {
             storages.insert(insertion.series.to_owned(), SeriesStorage::load("test_series")); // TODO: bad
         }
 
-        let mut storage = storages.get_mut(&insertion.series.to_owned()).unwrap();
+        let storage = storages.get_mut(&insertion.series.to_owned()).unwrap();
         storage.insert(insertion.entry.into());
 
         ExecutionResult::Insert(InsertionResult {})

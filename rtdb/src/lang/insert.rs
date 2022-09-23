@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn parses_fields() {
         let mut index = 0;
-        let mut query = String::from("INSERT test_series,value1=0.5,value2=1");
+        let _query = String::from("INSERT test_series,value1=0.5,value2=1");
         let mut entry = SeriesEntry {
             fields: vec![],
             values: vec![],
@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(index, 19);
 
 
-        let (parsed, ident) = parse_identifier(b"test_series,value1=1 12345", &mut index);
+        let (parsed, _ident) = parse_identifier(b"test_series,value1=1 12345", &mut index);
         assert_eq!(parsed, false);
         assert_eq!(index, 19);
     }

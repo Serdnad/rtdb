@@ -47,7 +47,7 @@ fn to_table(data: &QueryResult) -> String {
                 Some(val) => val.to_string()
             };
 
-            let len = &data.records.fields[i].len();
+            let _len = &data.records.fields[i].len();
             s.push_str(&format!("{: >8}", val_s));
         }
         s.push_str("\n");

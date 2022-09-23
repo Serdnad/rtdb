@@ -1,6 +1,6 @@
 use std::str::from_utf8;
 
-use nom::{AsBytes, ParseTo};
+use nom::{AsBytes};
 
 use crate::lang::SelectQuery;
 use crate::lang::util::{advance_whitespace, parse_ascii, parse_timestamp};
@@ -45,7 +45,7 @@ pub fn parse_select(raw_query: &mut str) -> SelectQuery {
 
 // TODO: move this somewhere else
 
-fn parse_fields<'a>(s: &'a [u8], mut index: &mut usize, fields: &mut Vec<&'a str>) {
+fn parse_fields<'a>(s: &'a [u8], index: &mut usize, fields: &mut Vec<&'a str>) {
     let mut i = *index;
 
     if s[i] == b'[' {
@@ -100,7 +100,7 @@ fn parse_fields<'a>(s: &'a [u8], mut index: &mut usize, fields: &mut Vec<&'a str
 /// - AFTER [timestamp] BEFORE [timestamp]
 ///
 /// and updates the given query.
-fn parse_time_range<'a>(mut s: &'a [u8], mut index: &mut usize, query: &mut SelectQuery<'a>) {
+fn parse_time_range<'a>(s: &'a [u8], mut index: &mut usize, query: &mut SelectQuery<'a>) {
     if parse_ascii("after", &s, &mut index) {
         advance_whitespace(s, &mut index);
         query.start = parse_timestamp(s, &mut index);

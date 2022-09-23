@@ -4,7 +4,7 @@ use std::mem::size_of;
 use std::os::unix::fs::FileExt;
 
 use nom::AsBytes;
-use rkyv::{Archive, Deserialize, Serialize};
+use rkyv::{Deserialize};
 
 use crate::storage::field::FieldEntry;
 use crate::storage::field_index::FieldStorageBlockSummary;
@@ -102,7 +102,7 @@ impl FieldStorageBlock {
         let mut bytes = [0; BLOCK_SIZE];
 
         // dbg!(block_offset * BLOCK_SIZE);
-        if let Err(error) = file.read_exact_at(&mut bytes, (block_offset * BLOCK_SIZE) as u64) {
+        if let Err(_error) = file.read_exact_at(&mut bytes, (block_offset * BLOCK_SIZE) as u64) {
             // dbg!(error);
             return FieldStorageBlock { entries: vec![] };
         };
@@ -176,7 +176,7 @@ mod tests {
     fn it_reads2() {
         let f = File::open("test_series_value1").unwrap();
 
-        let mut s = FieldStorage::new("test_series", "value1");
+        let _s = FieldStorage::new("test_series", "value1");
         let s = FieldStorageBlock::load(&f, 0);
         dbg!(s);
 
