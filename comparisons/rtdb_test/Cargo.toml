@@ -1,0 +1,17 @@
+[workspace]
+
+[package]
+name = "rtdb_test"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "rtdb_test"
+path = "src/main.rs"
+
+[dependencies]
+rtdb_client = { path = "../../client" }
+
+postgres = "0.19.4"

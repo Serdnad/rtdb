@@ -13,7 +13,7 @@ const USERS_SAVE_PATH: &'static str = "./users";
 
 /// Authentication methods supported for user accounts.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum AuthenticationMethod {
+pub enum Authentication {
     /// No authentication is enabled. Not recommended.
     None,
 
@@ -21,19 +21,19 @@ pub enum AuthenticationMethod {
     Password(String),
 }
 
-
+/// A user recognized by the database and authorized to query it and insert data.
 #[derive(Serialize, Deserialize)]
 pub struct User {
     name: String,
-    auth_method: AuthenticationMethod,
+    auth_method: Authentication,
 }
 
 impl User {
     /// Creates a new user and saves it to disk.
     pub fn create(name: &str, password: Option<&str>) -> User {
         let auth_method = match password {
-            None => AuthenticationMethod::None,
-            Some(password) => AuthenticationMethod::Password(hash_sha256(password)),
+            None => Authentication::None,
+            Some(password) => Authentication::Password(hash_sha256(password)),
         };
 
         let user = User { name: name.to_owned(), auth_method };
@@ -48,8 +48,8 @@ impl User {
             None => { Err("User does not exist") }
             Some(user) => {
                 match &user.auth_method {
-                    AuthenticationMethod::None => Ok(user),
-                    AuthenticationMethod::Password(user_pwd) => {
+                    Authentication::None => Ok(user),
+                    Authentication::Password(user_pwd) => {
                         if password.is_none() {
                             return Err("Missing password");
                         }
@@ -118,7 +118,7 @@ fn hash_sha256(str: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::users::{AuthenticationMethod, hash_sha256, User};
+    use crate::users::{Authentication, hash_sha256, User};
 
     #[test]
     fn creates_users() {
@@ -130,24 +130,24 @@ mod tests {
     fn loads_users() {
         let user = User::load("andres").unwrap();
         assert_eq!(user.name, "andres");
-        assert_eq!(user.auth_method, AuthenticationMethod::None);
+        assert_eq!(user.auth_method, Authentication::None);
 
         let user = User::load("brendan").unwrap();
         assert_eq!(user.name, "brendan");
-        assert_eq!(user.auth_method, AuthenticationMethod::Password(hash_sha256("mysecurepassword")));
+        assert_eq!(user.auth_method, Authentication::Password(hash_sha256("mysecurepassword")));
     }
 
     #[test]
     fn authenticates_users() {
         let user = User::authenticate("andres", None).unwrap();
         assert_eq!(user.name, "andres");
-        assert_eq!(user.auth_method, AuthenticationMethod::None);
+        assert_eq!(user.auth_method, Authentication::None);
 
         let user = User::authenticate("brendan", None);
         assert!(user.is_err());
 
         let user = User::authenticate("brendan", Some(&hash_sha256("mysecurepassword"))).unwrap();
         assert_eq!(user.name, "brendan");
-        assert_eq!(user.auth_method, AuthenticationMethod::Password(hash_sha256("mysecurepassword")));
+        assert_eq!(user.auth_method, Authentication::Password(hash_sha256("mysecurepassword")));
     }
 }

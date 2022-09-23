@@ -3,8 +3,9 @@ use std::fs::read;
 use std::io::Write;
 
 use bytecheck::CheckBytes;
-use nom::AsBytes;
 use rkyv::{Archive, Deserialize, Serialize};
+
+use nom::AsBytes;
 
 use crate::storage::field::FieldEntry;
 

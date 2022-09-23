@@ -1,0 +1,13 @@
+[package]
+name = "rtdb_server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rtdb_server"
+path = "src/main.rs"
+
+[dependencies]
+rtdb = { path = "../rtdb" }
+
+tokio = { version = "1.21.1", features = ["full"] }

@@ -170,6 +170,7 @@ mod tests {
     #[test]
     fn it_inserts() {
         fs::remove_dir("test_series");
+        fs::create_dir("test_series");
         let mut s = FieldStorage::new("test_series", "value1");
 
         for i in 0..ENTRIES_PER_BLOCK * 10 + 1 {
@@ -181,6 +182,7 @@ mod tests {
     fn it_reads() {
         let s = FieldStorage::new("test_series", "value1");
         let records = s.read(None, None);
+        dbg!(records.len());
         dbg!(records);
     }
 }

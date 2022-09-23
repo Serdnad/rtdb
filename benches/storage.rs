@@ -6,7 +6,7 @@ use rtdb::lang::SelectQuery;
 use rtdb::storage::field::{FieldEntry, FieldStorage};
 use rtdb::storage::field_block::FieldStorageBlock;
 use rtdb::storage::field_index::FieldStorageBlockSummary;
-use rtdb::storage::series::{merge_records, merge_records3, SeriesStorage};
+use rtdb::storage::series::{merge_records3, SeriesStorage};
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("write field [single]", |b| {
@@ -61,15 +61,15 @@ fn criterion_benchmark(c: &mut Criterion) {
     //     })
     // });
 
-    c.bench_function("merge aligned records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let entries = vec![a, b];
-
-            let records = merge_records(entries, vec!["field1", "field2"]);
-        })
-    });
+    // c.bench_function("merge aligned records", |b| {
+    //     b.iter(|| {
+    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let entries = vec![a, b];
+    //
+    //         let records = merge_records(entries, vec!["field1", "field2"]);
+    //     })
+    // });
 
     c.bench_function("merge3 aligned records big", |b| {
         b.iter(|| {
@@ -91,15 +91,15 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("merge alternating records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2 + 1, value: 1.0 }).collect();
-            let entries = vec![a, b];
-
-            let records = merge_records(entries, vec!["field1", "field2"]);
-        })
-    });
+    // c.bench_function("merge alternating records", |b| {
+    //     b.iter(|| {
+    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2, value: 0.0 }).collect();
+    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 2 + 1, value: 1.0 }).collect();
+    //         let entries = vec![a, b];
+    //
+    //         let records = merge_records(entries, vec!["field1", "field2"]);
+    //     })
+    // });
 
     c.bench_function("merge3 alternating records", |b| {
         b.iter(|| {
@@ -122,29 +122,29 @@ fn criterion_benchmark(c: &mut Criterion) {
     //     })
     // });
 
-    c.bench_function("merge 4 aligned records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let entries = vec![a, b, c, d];
+    // c.bench_function("merge 4 aligned records", |b| {
+    //     b.iter(|| {
+    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let entries = vec![a, b, c, d];
+    //
+    //         let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
+    //     })
+    // });
 
-            let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
-        })
-    });
-
-    c.bench_function("merge2 4 aligned records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-            let entries = vec![a, b, c, d];
-
-            let records = merge_records2(entries, vec!["field1", "field2", "field3", "field4"]);
-        })
-    });
+    // c.bench_function("merge2 4 aligned records", |b| {
+    //     b.iter(|| {
+    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
+    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
+    //         let entries = vec![a, b, c, d];
+    //
+    //         let records = merge_records2(entries, vec!["field1", "field2", "field3", "field4"]);
+    //     })
+    // });
 
 
     c.bench_function("merge3 4 aligned records", |b| {
@@ -159,17 +159,17 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("merge 4 alternating records", |b| {
-        b.iter(|| {
-            let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4, value: 0.0 }).collect();
-            let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 1, value: 1.0 }).collect();
-            let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 2, value: 2.0 }).collect();
-            let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 3, value: 3.0 }).collect();
-            let entries = vec![a, b, c, d];
-
-            let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
-        })
-    });
+    // c.bench_function("merge 4 alternating records", |b| {
+    //     b.iter(|| {
+    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4, value: 0.0 }).collect();
+    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 1, value: 1.0 }).collect();
+    //         let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 2, value: 2.0 }).collect();
+    //         let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 3, value: 3.0 }).collect();
+    //         let entries = vec![a, b, c, d];
+    //
+    //         let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
+    //     })
+    // });
 
     c.bench_function("merge3 4 alternating records", |b| {
         b.iter(|| {

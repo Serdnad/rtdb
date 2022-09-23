@@ -3,6 +3,7 @@ use std::str::from_utf8;
 use nom::{AsBytes, ParseTo};
 
 use crate::lang::SelectQuery;
+use crate::lang::util::{advance_whitespace, parse_ascii, parse_timestamp};
 
 /// Parse a full SELECT query.
 pub fn parse_select(raw_query: &mut str) -> SelectQuery {
@@ -43,15 +44,6 @@ pub fn parse_select(raw_query: &mut str) -> SelectQuery {
 }
 
 // TODO: move this somewhere else
-#[inline]
-fn advance_whitespace(s: &[u8], mut index: &mut usize) {
-    let mut i = *index;
-    while i < s.len() && s[i] == b' ' {
-        i += 1;
-    }
-
-    *index = i;
-}
 
 fn parse_fields<'a>(s: &'a [u8], mut index: &mut usize, fields: &mut Vec<&'a str>) {
     let mut i = *index;
@@ -100,41 +92,14 @@ fn parse_fields<'a>(s: &'a [u8], mut index: &mut usize, fields: &mut Vec<&'a str
     *index = i;
 }
 
-/// Attempt to parse an ascii literal, and advance the index accordingly if successful.
-/// TODO: move
-#[inline]
-fn parse_ascii(tag: &'static str, s: &[u8], index: &mut usize) -> bool {
-    match s[*index..].starts_with(tag.as_bytes()) {
-        true => {
-            *index += tag.len();
-            true
-        }
-        false => false,
-    }
-}
-
-/// TODO: make this more sophisticated in what kind of timestamps it can accept
-// TODO: move this somewhere else
-#[inline]
-fn parse_timestamp(s: &[u8], index: &mut usize) -> Option<i64> {
-    let mut i = 0;
-    for char in &s[*index..] {
-        match char.is_ascii_digit() {
-            true => i += 1,
-            false => break
-        }
-    }
-
-    match from_utf8(&s[*index..*index + i]).unwrap().parse() {
-        Ok(time) => {
-            *index += i;
-            Some(time)
-        }
-        Err(_) => None
-    }
-}
-
-
+// TODO: format doc lol
+/// Parses a time range denoted by either
+///
+/// - AFTER [timestamp]
+/// - BEFORE [timestamp]
+/// - AFTER [timestamp] BEFORE [timestamp]
+///
+/// and updates the given query.
 fn parse_time_range<'a>(mut s: &'a [u8], mut index: &mut usize, query: &mut SelectQuery<'a>) {
     if parse_ascii("after", &s, &mut index) {
         advance_whitespace(s, &mut index);

@@ -1,21 +1,27 @@
-pub mod query;
-
 use std::collections::HashMap;
+
 use nom::{AsChar, Compare, InputLength, InputTake, InputTakeAtPosition, IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::*;
-use nom::character::is_alphanumeric;
 use nom::character::complete::{space0, space1};
+use nom::character::is_alphanumeric;
 use nom::combinator::opt;
 use nom::error::ParseError;
 use nom::multi::many0;
 use nom::sequence::{preceded, terminated};
+use crate::lang::insert::Insertion;
+
 use crate::storage::series::SeriesEntry;
+
+
+mod util;
+pub mod query;
+pub mod insert;
 
 #[derive(Debug, PartialEq)]
 pub enum Action<'a> {
     Select(SelectQuery<'a>),
-    Insert(Insertion<'a>),
+    Insert(Insertion),
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,22 +37,22 @@ pub struct SelectQuery<'a> {
 
 
 // TODO: move to different file
-#[derive(Debug, PartialEq)]
-pub struct Insertion<'a> {
-    pub series: &'a str,
-    pub values: HashMap<String, f64>,
-    pub time: i64,
-}
+// #[derive(Debug, PartialEq)]
+// pub struct Insertion<'a> {
+//     pub series: &'a str,
+//     pub values: HashMap<String, f64>,
+//     pub time: i64,
+// }
 
 // TODO: move to different file
-impl Into<SeriesEntry> for Insertion<'_> {
-    fn into(self) -> SeriesEntry {
-        SeriesEntry {
-            values: self.values,
-            time: self.time,
-        }
-    }
-}
+// impl Into<SeriesEntry> for Insertion<'_> {
+//     fn into(self) -> SeriesEntry {
+//         SeriesEntry {
+//             values: self.values,
+//             time: self.time,
+//         }
+//     }
+// }
 
 pub fn parse(query: &mut String) -> Result<Action, &str> {
     query.make_ascii_lowercase();
@@ -64,11 +70,11 @@ fn parse_action(input: &str) -> IResult<&str, Action> {
 
             Action::Select(query)
         }
-        "insert" => Action::Insert(Insertion {
-            series: "",
-            values: Default::default(),
-            time: 0,
-        }),
+        // "insert" => Action::Insert(Insertion {
+        //     series: "",
+        //     values: Default::default(),
+        //     time: 0,
+        // }),
         _ => panic!("asd"), // TODO
     };
 
@@ -140,7 +146,8 @@ pub fn trim<I, O, E: ParseError<I>, F>(
 mod tests {
     use nom::bytes::complete::{tag, take_until};
     use nom::error::Error;
-    use crate::lang::{parse_action, Action, fields_selection, selection, SelectQuery, series_selection, trim};
+
+    use crate::lang::{Action, fields_selection, parse_action, selection, series_selection, trim};
 
     #[test]
     fn trim_parser() {
@@ -266,7 +273,8 @@ fn parse2(query: &str) {
 mod tests2 {
     use nom::bytes::complete::{tag, take_until};
     use nom::error::Error;
-    use crate::lang::{parse_action, Action, fields_selection, selection, SelectQuery, series_selection, trim};
+
+    use crate::lang::{Action, fields_selection, parse_action, selection, series_selection, trim};
 
     #[test]
     fn trim_parser() {
@@ -370,42 +378,3 @@ mod tests2 {
         assert_eq!(query.fields, vec!["field1", "field2"]);
     }
 }
-
-/*
-DOCS:
-
-supported select queries
-
-To select all recorded metrics in a series, execute the following:
-
-SELECT series
-
-To only select certain fields from a series,
-
-```sql
-SELECT series[field1, field2]
-```
-
-To select fields within a certain time range, there's the following
-
-SELECT series AFTER now()-5m
-SELECT series BEFORE now()-5m
-SELECT series BETWEEN (now()-30m, now()-20m)
-
-Supported time units are as follow:
-
-- Seconds: "s"
-- Minutes: "m"
-- Hours: "h"
-- Days: "d"
-- Weeks: "w"
-
-Note: Months and years are intentionally unsupported, due to increased likelihood of errors or
-unexpected behavior stemming from ambiguity in what constitutes a month or a year. For example, a
-month can be either 28, 30, or 31 days, and a year can be either 365 days, ~365.25, or 366. Rather
-than risk unexpected results, we encourage users to use either absolute timestamps, or one of the
-well defined units of time listed above.
-
-
-SCRATCH
- */
