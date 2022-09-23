@@ -44,6 +44,8 @@ byteorder = "1.4.3"
 
 
 [dev-dependencies]
+pprof = { version = "0.10", features = ["flamegraph", "criterion"] }
+
 criterion = "0.3"
 
 [[bench]]

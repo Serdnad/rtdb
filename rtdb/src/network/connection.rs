@@ -70,7 +70,7 @@ impl Connection {
                     match result {
                         ExecutionResult::Query(result) => {
                             let response = build_query_result(&result);
-                            dbg!(&response.len());
+                            // dbg!(&response.len());
                             self.stream.write_all(&response).await;
                             self.stream.flush().await;
                         }

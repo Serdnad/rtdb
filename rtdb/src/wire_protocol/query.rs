@@ -86,6 +86,7 @@ fn write_field_descriptions(mut buffer: &mut Vec<u8>, fields: Vec<Field>) {
 //     buffer
 // }
 
+#[inline]
 fn parse_field_description(buffer: &mut ByteReader) -> Result<(DataType, String), ()> {
     let data_type = DataType::try_from(buffer.read_u8().unwrap()).unwrap();
     let len = buffer.read_u8().unwrap();
@@ -125,6 +126,7 @@ fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow) {
     }
 }
 
+#[inline]
 fn parse_data_row(buffer: &mut ByteReader, fields: &Vec<Field>) -> DataRow {
     let mut values = vec![];
 
@@ -141,17 +143,17 @@ fn parse_data_row(buffer: &mut ByteReader, fields: &Vec<Field>) -> DataRow {
 }
 
 pub fn build_query_result(result: &QueryResult) -> Vec<u8> {
-    let mut buffer = vec![];
-
-    buffer.extend((result.count as u32).to_be_bytes());
 
     // TODO: gotta refactor this uh oh
-    let fields = result.records.fields.iter().map(|f| Field {
+    let fields: Vec<_> = result.records.fields.iter().map(|f| Field {
         name: f.to_owned(),
         data_type: DataType::Float,
     }).collect();
+
+    let mut buffer = Vec::with_capacity(estimate_mem(&fields, result.count));
     write_field_descriptions(&mut buffer, fields);
 
+    buffer.extend((result.count as u32).to_be_bytes());
     for row in &result.records.rows {
         write_data_row(&mut buffer, row);
     }
@@ -160,9 +162,9 @@ pub fn build_query_result(result: &QueryResult) -> Vec<u8> {
 }
 
 pub fn parse_query_result(mut buffer: &mut ByteReader) -> QueryResult {
-    let count = buffer.read_u32::<BigEndian>().unwrap();
     let fields = parse_field_descriptions(&mut buffer).unwrap();
 
+    let count = buffer.read_u32::<BigEndian>().unwrap();
     let mut rows = Vec::with_capacity(count as usize);
     for _ in 0..count {
         rows.push(parse_data_row(&mut buffer, &fields));
@@ -175,6 +177,23 @@ pub fn parse_query_result(mut buffer: &mut ByteReader) -> QueryResult {
             rows,
         },
     }
+}
+
+/// Approximate a buffer size to reduce allocations, which are the biggest cost in serializing and
+/// deserializing query results.
+#[inline]
+fn estimate_mem(fields: &Vec<Field>, row_count: usize) -> usize {
+    let mem_estimate = fields.iter().map(|field| {
+        let data_size = match field.data_type {
+            DataType::Float => 8,
+            DataType::Bool => 1,
+        } as usize;
+
+        // 32 comes from nowhere, fyi
+        32 + field.name.len() + (8 + data_size) * row_count
+    }).reduce(|acc, x| acc + x).unwrap();
+
+    mem_estimate
 }
 
 // TODO: write response parsers
