@@ -10,4 +10,5 @@ path = "src/lib.rs"
 [dependencies]
 rtdb = { path = "../rtdb" }
 
+byteorder = "1.4.3"
 tokio = { version = "1.21.1", features = ["full"] }

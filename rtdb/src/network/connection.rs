@@ -1,13 +1,16 @@
 use std::io::ErrorKind::UnexpectedEof;
+use std::os::linux::raw::stat;
 use std::time;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use crate::execution::ExecutionResult;
+use crate::execution::{ExecutionResult, QueryResult};
 use crate::lang::Action;
+use crate::lang::insert::parse_insert;
 use crate::lang::query::parse_select;
 use crate::network::read_string;
 use crate::network::{ACTION_QUERY, ACTION_INSERT};
 use crate::server::ENGINE;
+use crate::storage::series::{DataRow, RecordCollection};
 use crate::wire_protocol::query::build_query_result;
 
 /// A database connection.
@@ -17,6 +20,19 @@ pub struct Connection {
     pub authenticated: bool,
     pub stream: TcpStream,
 }
+
+// TODO: move, probably to lang? or execution?
+// pub fn parse_statement<'a>(mut statement: &'a mut String) -> Action<'a> {
+//     statement.make_ascii_lowercase();
+//
+//     if statement.starts_with("select") {
+//         Action::Select(parse_select(&mut statement))
+//     } else if statement.starts_with("insert") {
+//         Action::Insert(parse_insert(&mut statement))
+//     } else {
+//         panic!("Could not parse!") // tODO: error handling
+//     }
+// }
 
 /// A managed TCP stream connected to a cli.
 impl Connection {
@@ -36,62 +52,83 @@ impl Connection {
     /// 3. serializing and writing back the results.
     pub async fn start_handle_loop(&mut self) {
         loop {
-            let data = self.stream.read_u8().await;
-            let action_byte = match data {
-                Ok(action) => action,
-                Err(err) => {
-                    if err.kind() == UnexpectedEof {
-                        break;
-                        // TODO: close this connection and clean up resources
-                    }
+            // let msg_length = self.stream.read_u8().await.unwrap();
+            // let input_length = match data {
+            //     Ok(action) => action,
+            //     Err(err) => {
+            //         if err.kind() == UnexpectedEof {
+            //             break;
+            //             // TODO: close this connection and clean up resources
+            //         }
+            //
+            //         dbg!(err);
+            //         break;
+            //     }
+            // };
 
-                    dbg!(err);
-                    break;
-                }
-            };
+            // match action_byte {
+            //     ACTION_QUERY => {
+            let mut msg = read_string(&mut self.stream).await;
 
-            match action_byte {
-                ACTION_QUERY => {
-                    let mut msg = read_string(&mut self.stream).await;
-                    // dbg!(&msg);
-                    //
-                    // println!("RUN THE QUERY");
+            // let result = QueryResult{ count: 0, records: RecordCollection { fields: vec![String::from("test")], rows: vec![DataRow{ time: 0, elements: vec![] }] } };
+            // let response = build_query_result(&result);
+            // self.stream.write_all(&response).await;
+            // self.stream.flush().await;
+            // return;
+            // dbg!(&msg);
+            //
+            // println!("RUN THE QUERY");
 
 
-                    let start = time::Instant::now();
-                    let select = parse_select(&mut msg);
+            let start = time::Instant::now();
 
-                    let engine = ENGINE.read().await;
-                    let result = engine.execute(Action::Select(select));
+            // let action = parse_statement(&mut msg);
+            msg.make_ascii_lowercase();
+            let action =
+                if msg.starts_with("select") {
+                    Action::Select(parse_select(&mut msg))
+                } else if msg.starts_with("insert") {
+                    Action::Insert(parse_insert(&mut msg))
+                } else {
+                    panic!("Could not parse!") // tODO: error handling
+                };
+
+            let engine = ENGINE.read().await;
+            let result = engine.execute(action);
+
+            match result {
+                ExecutionResult::Query(result) => {
+                    let response = build_query_result(&result);
 
                     let elapsed = start.elapsed();
                     println!("{}us", elapsed.as_micros());
 
-                    match result {
-                        ExecutionResult::Query(result) => {
-                            let response = build_query_result(&result);
-                            // dbg!(&response.len());
-                            self.stream.write_all(&response).await;
-                            self.stream.flush().await;
-                        }
-                        ExecutionResult::Insert(_) => {}
-                    }
+                    // dbg!(&response.len());
+                    let len = response.len();
+                    let mut buf = Vec::with_capacity(2 + len);
+                    buf.write_all(&len.to_be_bytes()).await;
+                    buf.write_all(&response).await;
 
-                    // dbg!(result);
-
-                    // let serialized_result = serde_json::to_string(&result).unwrap();
-                    // dbg!(serialized_result);
-
-
+                    dbg!(&buf.len());
+                    self.stream.write_all(&buf).await;
+                    self.stream.flush().await;
                 }
-                ACTION_INSERT => {
-                    let msg = read_string(&mut self.stream).await;
-                    dbg!(msg);
-
-                    println!("RUN THE INSERT");
-                }
-                _ => { println!("UNSUPPORTED"); }
+                ExecutionResult::Insert(_) => {}
             }
+
+            // dbg!(result);
+
+            // let serialized_result = serde_json::to_string(&result).unwrap();
+            // dbg!(serialized_result);
+            //     }
+            //     ACTION_INSERT => {
+            //         let msg = read_string(&mut self.stream).await;
+            //         dbg!(msg);
+            //
+            //         println!("RUN THE INSERT");
+            //     }
+            //     _ => { println!("UNSUPPORTED"); }
+            // }
         }
     }
 }

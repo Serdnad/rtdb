@@ -7,6 +7,7 @@ use rtdb::execution::QueryResult;
 use rtdb::storage::series::{DataRow, RecordCollection};
 use rtdb::wire_protocol::query::{build_query_result, ByteReader, parse_query_result};
 use pprof::criterion::{PProfProfiler, Output};
+use rtdb::wire_protocol::query2::test_fb;
 
 
 fn all(c: &mut Criterion) {
@@ -37,6 +38,20 @@ fn all(c: &mut Criterion) {
     });
 
 
+    c.bench_function("serialize query result flatbuffers", |b| {
+        b.iter(|| {
+            let _ = test_fb();
+        })
+    });
+
+    // c.bench_function("deserialize query result flatbuffers", |b| {
+    //     let buffer = build_query_result(&result);
+    //
+    //     b.iter(|| {
+    //         let mut cursor = ByteReader::new(&buffer);
+    //         let _ = parse_query_result(&mut cursor);
+    //     })
+    // });
 }
 
 criterion_group!{

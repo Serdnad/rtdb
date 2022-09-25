@@ -2,7 +2,7 @@ use std::time;
 
 use rustyline::error::ReadlineError::{Eof, Interrupted};
 
-use rtdb_client::{Client, QueryResult};
+use rtdb_client::{Client, ExecutionResult, QueryResult};
 
 #[tokio::main]
 async fn main() {
@@ -20,10 +20,15 @@ async fn main() {
                 rl.add_history_entry(&line);
 
                 let start = time::Instant::now();
-                let query_result = client.query(&line);
+                let result = client.execute(&line);
                 let elapsed = start.elapsed();
 
-                println!("{}", to_table(&query_result));
+                match result {
+                    ExecutionResult::Query(data) => {
+                        println!("{}", to_table(&data));
+                    }
+                    ExecutionResult::Insert(_) => {}
+                }
                 println!("{}us", elapsed.as_micros());
             }
             Err(Eof) => break,

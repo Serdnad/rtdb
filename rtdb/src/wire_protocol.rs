@@ -2,7 +2,7 @@
 //  the input is not perfect.
 
 pub mod query;
-
+pub mod insert;
 
 
 #[derive(Debug, Eq, PartialEq)]

@@ -2,13 +2,16 @@ use std::io;
 use std::io::{Read};
 use std::str::from_utf8;
 
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use tokio::time;
 
 
-use crate::execution::QueryResult;
+use crate::execution::{ExecutionResult, QueryResult};
+use crate::lang::Action;
 use crate::network::ACTION_QUERY;
 use crate::storage::series::{DataRow, RecordCollection};
 use crate::wire_protocol::{DataType, Field};
+use crate::wire_protocol::insert::build_insert_result;
 
 pub type ByteReader<'a> = io::Cursor<&'a [u8]>;
 
@@ -22,6 +25,32 @@ pub type ByteReader<'a> = io::Cursor<&'a [u8]>;
 
 /// returns a buffer containing a query command, with a textual query.
 /// a query command is formatted as follows:
+
+
+// TODO: move
+pub fn build_response(result: &ExecutionResult) -> Vec<u8> {
+    let buffer = match result {
+        ExecutionResult::Query(query_result) => {
+            build_query_result(query_result)
+        }
+        ExecutionResult::Insert(insert_result) => {
+            build_insert_result(insert_result)
+        }
+    };
+
+    buffer
+}
+
+
+// TODO: move
+/// Pushes a string onto a buffer, prefixing it with the string's length as a u16
+fn push_str(buffer: &mut Vec<u8>, str: &str) {
+    // buffer.push(str.len() as u8);
+    let len = str.len() as u16;
+    buffer.extend(len.to_be_bytes());
+    buffer.extend(str.as_bytes());
+}
+
 
 /// ```markdown
 /// [action]  [query]
@@ -62,10 +91,9 @@ pub fn build_query_command(query: &str) -> Vec<u8> {
 /// [DATA_TYPE] [NAME]
 /// u8          PStr(u8)
 #[inline]
-fn write_field_description(buffer: &mut Vec<u8>, name: &str, data_type: DataType) {
+fn write_field_description(mut buffer: &mut Vec<u8>, name: &str, data_type: DataType) {
     buffer.push(data_type as u8);
-    buffer.push(name.len() as u8);
-    buffer.extend(name.as_bytes());
+    push_str(&mut buffer, name);
 }
 
 /// Append multiple field descriptions to a buffer, prefixed by the number of fields being printed
@@ -89,7 +117,7 @@ fn write_field_descriptions(mut buffer: &mut Vec<u8>, fields: Vec<Field>) {
 #[inline]
 fn parse_field_description(buffer: &mut ByteReader) -> Result<(DataType, String), ()> {
     let data_type = DataType::try_from(buffer.read_u8().unwrap()).unwrap();
-    let len = buffer.read_u8().unwrap();
+    let len = buffer.read_u16::<BigEndian>().unwrap();
 
     let mut name_buf = vec![0; len as usize];
     buffer.read_exact(&mut name_buf);
@@ -99,10 +127,11 @@ fn parse_field_description(buffer: &mut ByteReader) -> Result<(DataType, String)
 }
 
 
+#[inline]
 fn parse_field_descriptions(buffer: &mut ByteReader) -> Result<Vec<Field>, ()> {
     let n = buffer.read_u8().unwrap();
 
-    let mut fields = vec![];
+    let mut fields = Vec::with_capacity(n as usize);
     for _ in 0..n {
         let (data_type, name) = parse_field_description(buffer).unwrap();
         let f = Field { name, data_type };
@@ -117,6 +146,7 @@ fn parse_field_descriptions(buffer: &mut ByteReader) -> Result<Vec<Field>, ()> {
 
 // TODO: generalizing this might be a pain... but oh well
 // TODO: figure out what to do about null values
+#[inline]
 fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow) {
     let time = row.time;
     buffer.extend(time.to_be_bytes());
@@ -128,7 +158,7 @@ fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow) {
 
 #[inline]
 fn parse_data_row(buffer: &mut ByteReader, fields: &Vec<Field>) -> DataRow {
-    let mut values = vec![];
+    let mut values = Vec::with_capacity(fields.len());
 
     let time = buffer.read_i64::<BigEndian>().unwrap();
     for field in fields {
@@ -151,6 +181,8 @@ pub fn build_query_result(result: &QueryResult) -> Vec<u8> {
     }).collect();
 
     let mut buffer = Vec::with_capacity(estimate_mem(&fields, result.count));
+    buffer.push(1); // TODO: this says that it's a query result. move this out of this function.
+
     write_field_descriptions(&mut buffer, fields);
 
     buffer.extend((result.count as u32).to_be_bytes());
@@ -167,7 +199,11 @@ pub fn parse_query_result(mut buffer: &mut ByteReader) -> QueryResult {
     let count = buffer.read_u32::<BigEndian>().unwrap();
     let mut rows = Vec::with_capacity(count as usize);
     for _ in 0..count {
+        let s = time::Instant::now();
         rows.push(parse_data_row(&mut buffer, &fields));
+        let elapsed = s.elapsed();
+
+        println!("{}ns", elapsed.as_nanos());
     }
 
     QueryResult {
@@ -198,20 +234,6 @@ fn estimate_mem(fields: &Vec<Field>, row_count: usize) -> usize {
 
 // TODO: write response parsers
 
-
-/// Returns a buffer containing an INSERT command, with a textual query
-// #[inline]
-// pub fn build_insert_command(insertion: &str) -> Vec<u8> {
-//     let len = insertion.len() as u16;
-//
-//     // add 3 bytes for action and query length
-//     let mut buffer = Vec::with_capacity((len + 3) as usize);
-//
-//     buffer.push(ACTION_INSERT);
-//     buffer.extend(len.to_be_bytes());
-//     buffer.extend(insertion.as_bytes());
-//     buffer
-// }
 
 // -
 #[cfg(test)]

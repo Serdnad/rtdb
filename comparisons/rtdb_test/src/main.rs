@@ -11,7 +11,7 @@ fn main() {
 
     let N = 1000;
     for _ in 0..N {
-        let r = client.query("SELECT test_series[field1, field2]");
+        let r = client.execute("SELECT test_series[field1, field2]");
         // let r = client.query("SELECT * FROM playground", &[]).unwrap();
         // dbg!(r);
     }

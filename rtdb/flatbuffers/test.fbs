@@ -1,0 +1,20 @@
+namespace rtdb.Test;
+
+table Query {
+    query:string;
+}
+
+
+struct FieldDescription {
+    name:string;
+}
+
+
+table QueryResponse {
+    count:uint32;
+
+}
+
+root_type Query;
+
+root_type QueryResponse;

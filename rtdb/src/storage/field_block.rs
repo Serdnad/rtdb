@@ -19,7 +19,7 @@ const PTR_SIZE: usize = std::mem::size_of::<usize>();
 /// We use certain powers of 2 to align with typical page sizes. In the future, this may be
 /// configurable.
 /// TODO: use at last 4096 after we're done testing.
-const BLOCK_SIZE: usize = 2400 + PTR_SIZE;
+const BLOCK_SIZE: usize = 240 + PTR_SIZE;
 
 /// The size of each entry in 8-bit bytes.
 const ENTRY_SIZE: usize = size_of::<FieldEntry>();

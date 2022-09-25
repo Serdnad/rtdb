@@ -1,7 +1,10 @@
 use std::io::{Error, Read, Write};
 use std::net::TcpStream;
+use byteorder::{BigEndian, ReadBytesExt};
+// use tokio::io::AsyncWriteExt;
 
-pub use rtdb::execution::QueryResult;
+pub use rtdb::execution::{ExecutionResult, QueryResult, InsertionResult};
+use rtdb::wire_protocol::insert::parse_insert_result;
 use rtdb::wire_protocol::query::*;
 
 pub struct Client {
@@ -21,9 +24,13 @@ impl Client {
         }
     }
 
-    pub fn query(&mut self, query: &str) -> QueryResult {
-        let msg = build_query_command(query);
-        self.stream.write_all(&msg).unwrap();
+    pub fn execute(&mut self, query: &str) -> ExecutionResult {
+        let len = query.len() as u16;
+        let mut buffer = Vec::with_capacity((2 + len) as usize);
+        buffer.write_all(&len.to_be_bytes());
+        buffer.write_all(query.as_bytes());
+
+        self.stream.write_all(&buffer).unwrap();
         self.stream.flush().unwrap();
 
         read_from_stream(&mut self.stream)
@@ -32,31 +39,54 @@ impl Client {
 
 // TODO: generalize this, and we can probably optimize it a fair bit too, but that'll involve
 //  tweaking the way we serialize responses probably.
-fn read_from_stream(stream: &mut TcpStream) -> QueryResult {
-    let mut response = vec![];
+fn read_from_stream(stream: &mut TcpStream) -> ExecutionResult {
+    let buf_len = stream.read_u64::<BigEndian>().unwrap();
+    // dbg!(buf_len);
 
-    let mut buffer = vec![0; 4096];
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(n) => {
-                response.write_all(&buffer[..n]).expect("ruh roh");
 
-                if n < 4096 {
-                    break;
-                }
-            }
-            Err(e) => {
-                eprintln!("{}", e);
-                break;
-            }
-        }
-    }
+    let mut response = vec![0; buf_len as usize];
+    stream.read_exact(&mut response).unwrap();
+    // dbg!(&response);
+
+    // let mut response = vec![];
+
+    // let mut buffer = vec![0; 4096];
+    // loop {
+    //     match stream.read(&mut buffer) {
+    //         Ok(0) => break,
+    //         Ok(n) => {
+    //             response.write_all(&buffer[..n]).expect("ruh roh");
+    //
+    //             if n < 4096 {
+    //                 break;
+    //             }
+    //         }
+    //         Err(e) => {
+    //             eprintln!("{}", e);
+    //             break;
+    //         }
+    //     }
+    // }
+
+    // dbg!(&response);
+    // dbg!(buf_len);
+
+    // return ExecutionResult::Insert(InsertionResult { success: true });
 
     let mut cursor = ByteReader::new(&response);
-    let query_result = parse_query_result(&mut cursor);
-    query_result
+    match cursor.read_u8().unwrap() {
+        1 => {
+            let result = parse_query_result(&mut cursor);
+            ExecutionResult::Query(result)
+        }
+        2 => {
+            let result = parse_insert_result(&mut cursor);
+            ExecutionResult::Insert(result)
+        }
+        _ => panic!("Not supported")
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -68,6 +98,6 @@ mod tests {
     #[tokio::test]
     async fn creates_client() {
         let mut client = Client::new("127.0.0.1:2345").unwrap();
-        client.query("SELECT test_series");
+        client.execute("SELECT test_series");
     }
 }

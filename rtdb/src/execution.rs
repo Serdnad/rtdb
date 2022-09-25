@@ -30,6 +30,8 @@ pub struct QueryResult {
 
 #[derive(Serialize)]
 pub struct InsertionResult {
+    pub success: bool,
+    // pub error: Option<String>,
     // pub rows_inserted: u32,
 }
 
@@ -70,6 +72,6 @@ impl ExecutionEngine<'_> {
         let storage = storages.get_mut(&insertion.series.to_owned()).unwrap();
         storage.insert(insertion.entry.into());
 
-        ExecutionResult::Insert(InsertionResult {})
+        ExecutionResult::Insert(InsertionResult { success: true })
     }
 }
