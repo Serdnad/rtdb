@@ -152,7 +152,7 @@ fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow) {
     buffer.extend(time.to_be_bytes());
 
     for entry in &row.elements {
-        buffer.extend(entry.unwrap().to_be_bytes());
+        buffer.extend(entry.unwrap_or(f64::MIN).to_be_bytes()); // TODO: handle None properly
     }
 }
 
@@ -203,7 +203,7 @@ pub fn parse_query_result(mut buffer: &mut ByteReader) -> QueryResult {
         rows.push(parse_data_row(&mut buffer, &fields));
         let elapsed = s.elapsed();
 
-        println!("{}ns", elapsed.as_nanos());
+        // println!("{}ns", elapsed.as_nanos());
     }
 
     QueryResult {

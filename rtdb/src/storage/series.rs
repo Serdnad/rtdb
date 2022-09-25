@@ -3,6 +3,7 @@ use std::fs::{create_dir, OpenOptions, read, read_dir};
 use std::io::{Read, Write};
 use std::io::ErrorKind::AlreadyExists;
 use std::str;
+use smallvec::SmallVec;
 
 use crate::lang::SelectQuery;
 use crate::storage::field::{FieldEntry, FieldStorage};
@@ -126,7 +127,7 @@ impl SeriesStorage<'_> {
             }
         }).collect();
 
-        merge_records3(records, fields)
+        merge_records3(&records, &fields)
     }
 
     pub fn insert(&mut self, entry: SeriesEntry) {
@@ -161,21 +162,18 @@ pub struct DataRow {
 }
 
 // TODO [urgent]: this doesn't include timestamps...
-pub fn merge_records3(fields: Vec<Vec<FieldEntry>>, names: Vec<&str>) -> RecordCollection {
+pub fn merge_records3(fields: &Vec<Vec<FieldEntry>>, names: &Vec<&str>) -> RecordCollection {
     let field_count = names.len();
 
-    let mut rows = Vec::with_capacity(fields[0].len());
+    let max_min_rows = fields.iter().map(|f| f.len()).min().unwrap();
+    let mut rows = Vec::with_capacity(max_min_rows); // TODO: pick the max of all field lens
 
-    let mut next_elems: Vec<_> = fields.iter().map(|f| &f[0]).collect();
+    let mut next_elems: SmallVec<[&FieldEntry; 4]> = fields.iter().map(|f| &f[0]).collect();
     let mut indices = vec![0; fields.len()];
 
     let mut exhausted_count = 0;
 
-    loop {
-        if exhausted_count == field_count {
-            break;
-        }
-
+    'outer: loop {
         let mut earliest = next_elems[0].time;
         for &e in &next_elems[1..] {
             if e.time < earliest {
@@ -194,6 +192,11 @@ pub fn merge_records3(fields: Vec<Vec<FieldEntry>>, names: Vec<&str>) -> RecordC
 
                 if indices[i] == fields[i].len() {
                     exhausted_count += 1;
+                    if exhausted_count == field_count {
+                        rows.push(DataRow { time: earliest, elements: elems });
+                        break 'outer;
+                    }
+
                     next_elems[i] = &FieldEntry { time: i64::MAX, value: 0.0 };
                 } else {
                     next_elems[i] = &fields[i][indices[i]];
@@ -231,10 +234,10 @@ mod tests {
             vec![FieldEntry { value: 3.0, time: 1 }, FieldEntry { value: 4.0, time: 2 }],
         ];
 
-        let records = merge_records3(entries, vec!["field1", "field2"]);
+        let records = merge_records3(&entries, &vec!["field1", "field2"]);
         assert_eq!(records.rows, vec![
             DataRow { time: 1, elements: vec![Some(1.0), Some(3.0)] },
-            DataRow { time: 1, elements: vec![Some(2.0), Some(4.0)] },
+            DataRow { time: 2, elements: vec![Some(2.0), Some(4.0)] },
         ]);
     }
 
@@ -245,12 +248,30 @@ mod tests {
             vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
         ];
 
-        let records = merge_records3(entries, vec!["field1", "field2"]);
+        let records = merge_records3(&entries, &vec!["field1", "field2"]);
         assert_eq!(records.rows, vec![
             DataRow { time: 1, elements: vec![Some(1.0), None] },
             DataRow { time: 2, elements: vec![Some(2.0), Some(3.0)] },
             DataRow { time: 3, elements: vec![Some(5.0), None] },
             DataRow { time: 4, elements: vec![None, Some(4.0)] },
+        ]);
+    }
+
+
+    #[test]
+    fn merge3_3_mixed() {
+        let entries = vec![
+            vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 2 }, FieldEntry { value: 5.0, time: 3 }],
+            vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
+            vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
+        ];
+
+        let records = merge_records3(&entries, &vec!["field1", "field2", "field3"]);
+        assert_eq!(records.rows, vec![
+            DataRow { time: 1, elements: vec![Some(1.0), None, None] },
+            DataRow { time: 2, elements: vec![Some(2.0), Some(3.0), Some(3.0)] },
+            DataRow { time: 3, elements: vec![Some(5.0), None, None] },
+            DataRow { time: 4, elements: vec![None, Some(4.0), Some(4.0)] },
         ]);
     }
 

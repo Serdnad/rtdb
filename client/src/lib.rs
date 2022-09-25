@@ -1,6 +1,8 @@
 use std::io::{Error, Read, Write};
 use std::net::TcpStream;
 use byteorder::{BigEndian, ReadBytesExt};
+use tokio::time;
+use tokio::time::Instant;
 // use tokio::io::AsyncWriteExt;
 
 pub use rtdb::execution::{ExecutionResult, QueryResult, InsertionResult};
@@ -41,37 +43,8 @@ impl Client {
 //  tweaking the way we serialize responses probably.
 fn read_from_stream(stream: &mut TcpStream) -> ExecutionResult {
     let buf_len = stream.read_u64::<BigEndian>().unwrap();
-    // dbg!(buf_len);
-
-
     let mut response = vec![0; buf_len as usize];
     stream.read_exact(&mut response).unwrap();
-    // dbg!(&response);
-
-    // let mut response = vec![];
-
-    // let mut buffer = vec![0; 4096];
-    // loop {
-    //     match stream.read(&mut buffer) {
-    //         Ok(0) => break,
-    //         Ok(n) => {
-    //             response.write_all(&buffer[..n]).expect("ruh roh");
-    //
-    //             if n < 4096 {
-    //                 break;
-    //             }
-    //         }
-    //         Err(e) => {
-    //             eprintln!("{}", e);
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // dbg!(&response);
-    // dbg!(buf_len);
-
-    // return ExecutionResult::Insert(InsertionResult { success: true });
 
     let mut cursor = ByteReader::new(&response);
     match cursor.read_u8().unwrap() {

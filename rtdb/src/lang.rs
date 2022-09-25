@@ -1,5 +1,3 @@
-
-
 use nom::{AsChar, InputTakeAtPosition, IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::*;
@@ -10,8 +8,6 @@ use nom::error::ParseError;
 use nom::multi::many0;
 use nom::sequence::{preceded, terminated};
 use crate::lang::insert::Insertion;
-
-
 
 
 mod util;
@@ -35,24 +31,6 @@ pub struct SelectQuery<'a> {
     // TODO: filters, group by
 }
 
-
-// TODO: move to different file
-// #[derive(Debug, PartialEq)]
-// pub struct Insertion<'a> {
-//     pub series: &'a str,
-//     pub values: HashMap<String, f64>,
-//     pub time: i64,
-// }
-
-// TODO: move to different file
-// impl Into<SeriesEntry> for Insertion<'_> {
-//     fn into(self) -> SeriesEntry {
-//         SeriesEntry {
-//             values: self.values,
-//             time: self.time,
-//         }
-//     }
-// }
 
 pub fn parse(query: &mut String) -> Result<Action, &str> {
     query.make_ascii_lowercase();

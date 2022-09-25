@@ -19,7 +19,7 @@ const PTR_SIZE: usize = std::mem::size_of::<usize>();
 /// We use certain powers of 2 to align with typical page sizes. In the future, this may be
 /// configurable.
 /// TODO: use at last 4096 after we're done testing.
-const BLOCK_SIZE: usize = 240 + PTR_SIZE;
+const BLOCK_SIZE: usize = 2400 + PTR_SIZE;
 
 /// The size of each entry in 8-bit bytes.
 const ENTRY_SIZE: usize = size_of::<FieldEntry>();
@@ -101,13 +101,10 @@ impl FieldStorageBlock {
     pub fn load(file: &File, block_offset: usize) -> FieldStorageBlock {
         let mut bytes = [0; BLOCK_SIZE];
 
-        // dbg!(block_offset * BLOCK_SIZE);
         if let Err(_error) = file.read_exact_at(&mut bytes, (block_offset * BLOCK_SIZE) as u64) {
-            // dbg!(error);
+            dbg!(_error);
             return FieldStorageBlock { entries: vec![] };
         };
-        // dbg!(&bytes);
-
 
         let archived = rkyv::check_archived_root::<Vec<FieldEntry>>(&bytes).unwrap();
         let deserialized: Vec<FieldEntry> = archived.deserialize(&mut rkyv::Infallible).unwrap();

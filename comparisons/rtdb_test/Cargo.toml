@@ -15,3 +15,8 @@ path = "src/main.rs"
 rtdb_client = { path = "../../client" }
 
 postgres = "0.19.4"
+
+
+# TEST jemallocator
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.5"

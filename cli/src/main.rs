@@ -1,3 +1,11 @@
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
+
 use std::time;
 
 use rustyline::error::ReadlineError::{Eof, Interrupted};
@@ -57,6 +65,8 @@ fn to_table(data: &QueryResult) -> String {
         }
         s.push_str("\n");
     }
+
+    s.push_str(&format!("{}/{}", data.count, data.count));
 
     s
 }

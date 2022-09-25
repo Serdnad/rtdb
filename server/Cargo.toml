@@ -7,6 +7,13 @@ edition = "2021"
 name = "rtdb_server"
 path = "src/main.rs"
 
+
+
+# TEST jemallocator
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.5"
+
+
 [dependencies]
 rtdb = { path = "../rtdb" }
 

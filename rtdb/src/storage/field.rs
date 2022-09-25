@@ -64,17 +64,9 @@ impl BlockManager {
             return &self.blocks[&block_offset];
         }
 
-
-        // match self.blocks.get(&block_offset) {
-        //     Some(block) => block,
-        //     None => {
-        // println!("LOAD BLOCK!");
         let block = FieldStorageBlock::load(&self.data_file, block_offset);
         self.blocks.insert(block_offset, block);
         &self.blocks[&block_offset]
-
-        // &block
-        // }
     }
 }
 
@@ -124,7 +116,6 @@ impl FieldStorage {
         match self.curr_block.has_space() {
             true => self.curr_block.insert(entry),
             false => {
-                // println!("WRITE");
                 self.curr_block.write_data(&mut self.data_file_handle);
                 self.curr_block.write_summary(&mut self.index_file_handle);
 

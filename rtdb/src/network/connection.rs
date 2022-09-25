@@ -11,6 +11,7 @@ use crate::network::read_string;
 use crate::network::{ACTION_QUERY, ACTION_INSERT};
 use crate::server::ENGINE;
 use crate::storage::series::{DataRow, RecordCollection};
+use crate::wire_protocol::insert::build_insert_result;
 use crate::wire_protocol::query::build_query_result;
 
 /// A database connection.
@@ -101,7 +102,7 @@ impl Connection {
                     let response = build_query_result(&result);
 
                     let elapsed = start.elapsed();
-                    println!("{}us", elapsed.as_micros());
+                    // println!("{}us", elapsed.as_micros());
 
                     // dbg!(&response.len());
                     let len = response.len();
@@ -109,11 +110,25 @@ impl Connection {
                     buf.write_all(&len.to_be_bytes()).await;
                     buf.write_all(&response).await;
 
-                    dbg!(&buf.len());
+                    // dbg!(&buf.len());
                     self.stream.write_all(&buf).await;
                     self.stream.flush().await;
                 }
-                ExecutionResult::Insert(_) => {}
+                ExecutionResult::Insert(result) => {
+                    let response = build_insert_result(&result);
+
+                    let elapsed = start.elapsed();
+                    println!("{}us", elapsed.as_micros());
+
+                    let len = response.len();
+                    let mut buf = Vec::with_capacity(2 + len);
+                    buf.write_all(&len.to_be_bytes()).await;
+                    buf.write_all(&response).await;
+
+                    // dbg!(&buf.len());
+                    self.stream.write_all(&buf).await;
+                    self.stream.flush().await;
+                }
             }
 
             // dbg!(result);

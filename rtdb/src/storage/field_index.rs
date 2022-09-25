@@ -3,9 +3,8 @@ use std::fs::read;
 use std::io::Write;
 
 use bytecheck::CheckBytes;
-use rkyv::{Archive, Deserialize, Serialize};
-
 use nom::AsBytes;
+use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::storage::field::FieldEntry;
 
@@ -17,6 +16,8 @@ pub struct FieldStorageBlockSummary {
     pub(crate) start_timestamp: i64,
     pub(crate) latest_timestamp: i64,
 }
+
+const SUMMARY_BLOCK_SIZE: usize = size_of::<FieldStorageBlockSummary>();
 
 impl FieldStorageBlockSummary {
     pub fn from_entries(entries: &Vec<FieldEntry>) -> FieldStorageBlockSummary {
@@ -34,10 +35,10 @@ impl FieldStorageBlockSummary {
     pub fn load_all(path: &str) -> Vec<FieldStorageBlockSummary> {
         let bytes = read(path).unwrap();
 
-        let mut summaries = Vec::with_capacity(bytes.len() / size_of::<FieldStorageBlockSummary>());
+        let mut summaries = Vec::with_capacity(bytes.len() / SUMMARY_BLOCK_SIZE);
 
-        for offset in (0..bytes.len()).step_by(32) {
-            let summary = rkyv::from_bytes::<FieldStorageBlockSummary>(&bytes[offset..offset + 32]).unwrap();
+        for offset in (0..bytes.len()).step_by(SUMMARY_BLOCK_SIZE) {
+            let summary = rkyv::from_bytes::<FieldStorageBlockSummary>(&bytes[offset..offset + SUMMARY_BLOCK_SIZE]).unwrap();
             summaries.push(summary);
         }
 
