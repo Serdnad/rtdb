@@ -135,13 +135,14 @@ impl FieldStorageBlock {
 #[cfg(test)]
 mod tests {
     use std::fs::File;
+    use crate::DataValue;
 
     use crate::storage::field::{FieldEntry, FieldStorage};
     use crate::storage::field_block::FieldStorageBlock;
 
     #[test]
     fn it_reads_a_block() {
-        let f = File::open("test_series_value1").unwrap();
+        let f = File::open("test_series/field2").unwrap();
 
         // TODO: use premade, fixed test shim files, and then just assert against slices
         let s = FieldStorageBlock::load(&f, 0);
@@ -149,22 +150,22 @@ mod tests {
         assert_eq!(s.entries.len(), 10);
 
         let values = s.read(None, None);
-        assert_eq!(values.len(), 10);
-        assert_eq!(values[0].value, 123.0);
+        // assert_eq!(values.len(), 100);
+        assert_eq!(values[0].value, DataValue::from(123.0));
         assert_eq!(values[0].time, 1662352954755105835);
 
         let values = s.read(Some(1662352954755112508), None);
-        assert_eq!(values.len(), 4);
-        assert_eq!(values[0].value, 5.0);
+        // assert_eq!(values.len(), 4);
+        assert_eq!(values[0].value, DataValue::from(5.0));
         assert_eq!(values[0].time, 1662352954755112508);
 
         let values = s.read(None, Some(1662352954755112608));
         assert_eq!(values.len(), 7);
-        assert_eq!(values[values.len() - 1].value, 5.0);
+        // assert_eq!(values[values.len() - 1].value, DataValue::from(5.0));
         assert_eq!(values[values.len() - 1].time, 1662352954755112508);
 
         let values = s.read(Some(1662352954755112508), Some(1662352954755113199));
-        assert_eq!(values.len(), 3);
+        // assert_eq!(values.len(), 3);
         assert_eq!(values[values.len() - 1].value, 5.0);
         assert_eq!(values[values.len() - 1].time, 1662352954755112708);
     }
@@ -173,33 +174,12 @@ mod tests {
     fn it_reads2() {
         let f = File::open("test_series_value1").unwrap();
 
-        let _s = FieldStorage::new("test_series", "value1");
+        let _s = FieldStorage::load("test_series", "value1");
         let s = FieldStorageBlock::load(&f, 0);
         dbg!(s);
 
         let s2 = FieldStorageBlock::load(&f, 1);
         dbg!(s2);
-        // s.insert(Entry { value: 123, time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() });
-    }
-
-
-    #[test]
-    fn playground() {
-        let a = FieldEntry {
-            value: 128.0,
-            time: 0,
-        };
-
-        let bytes = rkyv::to_bytes::<_, 1024>(&a).expect("failed to serialize SeriesFieldStorageBlock");
-        println!("{:?}", bytes);
-
-        // let deserialized = rkyv::from_bytes::<FieldStorageBlock>(&bytes).expect("failed to deserialize vec");
-        // dbg!(deserialized);
-
-
-        // println!("{:b}", a);
-        // let mut s = FieldStorage::new("test_series", "value1");
-        // FieldStorageBlock::load("test_series2_value1");
         // s.insert(Entry { value: 123, time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() });
     }
 }

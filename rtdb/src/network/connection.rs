@@ -97,12 +97,15 @@ impl Connection {
             let engine = ENGINE.read().await;
             let result = engine.execute(action);
 
+            let elapsed = start.elapsed();
+            println!("{}us", elapsed.as_micros());
+
             match result {
                 ExecutionResult::Query(result) => {
                     let response = build_query_result(&result);
 
                     let elapsed = start.elapsed();
-                    // println!("{}us", elapsed.as_micros());
+                    println!("{}us", elapsed.as_micros());
 
                     // dbg!(&response.len());
                     let len = response.len();
@@ -117,8 +120,6 @@ impl Connection {
                 ExecutionResult::Insert(result) => {
                     let response = build_insert_result(&result);
 
-                    let elapsed = start.elapsed();
-                    println!("{}us", elapsed.as_micros());
 
                     let len = response.len();
                     let mut buf = Vec::with_capacity(2 + len);

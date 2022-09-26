@@ -7,9 +7,11 @@ use std::sync::{Arc, Mutex};
 // bytecheck can be used to validate your data if you want
 use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize, Serialize};
+use crate::DataValue;
 
 use crate::storage::field_block::FieldStorageBlock;
 use crate::storage::field_index::FieldStorageBlockSummary;
+use crate::wire_protocol::DataType;
 
 
 #[derive(Archive, Clone, Deserialize, Serialize, Debug, PartialEq)]
@@ -20,14 +22,15 @@ pub struct FieldEntry {
     pub time: i64,
 
     // TODO: type tmp
-    pub value: f64,
+    pub value: DataValue,
 }
 
 
 #[derive(Debug)]
 pub struct FieldStorage {
-    series_name: String,
     field_name: String,
+
+    data_type: DataType,
 
     data_file_handle: File,
     index_file_handle: File,
@@ -73,7 +76,7 @@ impl BlockManager {
 
 impl FieldStorage {
     // TODO: split new into load and new, and load summaries accordingly
-    pub fn new<'a>(series_name: &str, field_name: &str) -> FieldStorage {
+    pub fn load<'a>(series_name: &str, field_name: &str) -> FieldStorage {
         let (data_file, index_file) = FieldStorage::get_files(series_name, field_name, true);
 
         // TODO: tmp
@@ -84,8 +87,12 @@ impl FieldStorage {
         let index_filename = format!("{}_index", filename);
         let summaries = FieldStorageBlockSummary::load_all(&index_filename);
 
+        if summaries.len() > 0 {
+            // TODO: figure out datatype, maybe we should just save it, but that means saving a new file? or maybe as extension?
+        }
+
         FieldStorage {
-            series_name: series_name.to_owned(),
+            data_type: DataType::Float, // TODO
             field_name: field_name.to_owned(),
             block_summaries: summaries,
             curr_block: FieldStorageBlock::new(),
@@ -154,6 +161,7 @@ impl FieldStorage {
 #[cfg(test)]
 mod tests {
     use std::{fs, time};
+    use crate::DataValue;
 
     use crate::storage::field::{FieldEntry, FieldStorage};
     use crate::storage::field_block::ENTRIES_PER_BLOCK;
@@ -162,16 +170,16 @@ mod tests {
     fn it_inserts() {
         fs::remove_dir("test_series");
         fs::create_dir("test_series");
-        let mut s = FieldStorage::new("test_series", "value1");
+        let mut s = FieldStorage::load("test_series", "value1");
 
         for i in 0..ENTRIES_PER_BLOCK * 10 + 1 {
-            s.insert(FieldEntry { value: i as f64, time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() as i64 });
+            s.insert(FieldEntry { value: DataValue::Float(i as f64), time: time::UNIX_EPOCH.elapsed().unwrap().as_nanos() as i64 });
         }
     }
 
     #[test]
     fn it_reads() {
-        let s = FieldStorage::new("test_series", "value1");
+        let s = FieldStorage::load("test_series", "value1");
         let records = s.read(None, None);
         dbg!(records.len());
         dbg!(records);

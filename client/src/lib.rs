@@ -1,13 +1,11 @@
 use std::io::{Error, Read, Write};
 use std::net::TcpStream;
-use byteorder::{BigEndian, ReadBytesExt};
-use tokio::time;
-use tokio::time::Instant;
-// use tokio::io::AsyncWriteExt;
 
-pub use rtdb::execution::{ExecutionResult, QueryResult, InsertionResult};
-use rtdb::wire_protocol::insert::parse_insert_result;
-use rtdb::wire_protocol::query::*;
+use byteorder::{BigEndian, ReadBytesExt};
+
+pub use rtdb::execution::{ExecutionResult, InsertionResult, QueryResult};
+use rtdb::wire_protocol::parse_result;
+pub use rtdb::wire_protocol::DataType;
 
 pub struct Client {
     stream: TcpStream,
@@ -46,18 +44,7 @@ fn read_from_stream(stream: &mut TcpStream) -> ExecutionResult {
     let mut response = vec![0; buf_len as usize];
     stream.read_exact(&mut response).unwrap();
 
-    let mut cursor = ByteReader::new(&response);
-    match cursor.read_u8().unwrap() {
-        1 => {
-            let result = parse_query_result(&mut cursor);
-            ExecutionResult::Query(result)
-        }
-        2 => {
-            let result = parse_insert_result(&mut cursor);
-            ExecutionResult::Insert(result)
-        }
-        _ => panic!("Not supported")
-    }
+    parse_result(&mut response)
 }
 
 

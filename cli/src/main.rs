@@ -1,16 +1,16 @@
+use std::time;
+
+use rustyline::error::ReadlineError::{Eof, Interrupted};
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
+
+use rtdb_client::{Client, ExecutionResult};
+
+mod table;
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
-
-
-use std::time;
-
-use rustyline::error::ReadlineError::{Eof, Interrupted};
-
-use rtdb_client::{Client, ExecutionResult, QueryResult};
 
 #[tokio::main]
 async fn main() {
@@ -46,27 +46,4 @@ async fn main() {
     }
 
     rl.save_history("history.txt");
-}
-
-fn to_table(data: &QueryResult) -> String {
-    let mut s = String::from("│ ");
-    s.push_str(&data.records.fields.iter().map(|f| f.to_owned()).collect::<Vec<_>>().join(" | "));
-    s.push_str(" │\n");
-
-    for row in &data.records.rows[0..20] {
-        for (i, &elem) in row.elements.iter().enumerate() {
-            let val_s = match elem {
-                None => String::from(""),
-                Some(val) => val.to_string()
-            };
-
-            let _len = &data.records.fields[i].len();
-            s.push_str(&format!("{: >8}", val_s));
-        }
-        s.push_str("\n");
-    }
-
-    s.push_str(&format!("{}/{}", data.count, data.count));
-
-    s
 }

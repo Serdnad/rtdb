@@ -14,10 +14,7 @@ rustyline = "10.0.0"
 tokio = { version = "1.21.1", features = ["full"] } # for running tests with async
 
 
-
-
-
-
+chrono = "0.4.22"
 
 # TEST jemallocator
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

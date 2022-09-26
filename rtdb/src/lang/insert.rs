@@ -1,9 +1,11 @@
 use std::str::from_utf8;
+use crate::DataValue;
 
 use crate::lang::util::{advance_whitespace, parse_ascii, parse_timestamp};
 use crate::storage::series::SeriesEntry;
 use crate::util::new_timestamp;
 
+/// A valid entry to be inserted into a series.
 #[derive(Debug, PartialEq)]
 pub struct Insertion {
     pub series: String,
@@ -12,16 +14,25 @@ pub struct Insertion {
 
 // TODO: generalize to booleans and strings
 // TODO: return option
-fn parse_value<'a>(s: &'a [u8], index: &'a mut usize) -> f64 {
+fn parse_value<'a>(s: &'a [u8], index: &'a mut usize) -> DataValue {
+    if s[*index..].starts_with(b"true") {
+        *index += 4;
+        return DataValue::Bool(true);
+    } else if s[*index..].starts_with(b"false") {
+        *index += 5;
+        return DataValue::Bool(false);
+    }
+
     let (val, len) = fast_float::parse_partial::<f64, _>(from_utf8(&s[*index..]).unwrap()).unwrap();
     *index += len;
-    val
+    DataValue::Float(val)
 }
 
 /// Attempts to parse an identifier. Identifiers must begin with an alphabetic character.
 /// This function assumes that the input has already been converted to lowercase.
 /// This function increases index by the length of the parsed identifier.
 /// TODO: if we change the break condition from not certain characters to support ranges of ascii, we can reuse this
+///     + we should move to new file
 #[inline]
 fn parse_identifier<'a>(s: &'a [u8], index: &'a mut usize) -> (bool, &'a [u8]) {
     let mut i = 0;
@@ -33,7 +44,7 @@ fn parse_identifier<'a>(s: &'a [u8], index: &'a mut usize) -> (bool, &'a [u8]) {
 
     for &c in &s[*index..] {
         i += 1;
-        if c == b',' || c == b' ' || c == b'=' {
+        if !c.is_ascii_alphanumeric() && c != b'_' && c != b'-' {
             break;
         }
     }
@@ -57,7 +68,7 @@ fn parse_fields<'a>(s: &'a [u8], index: &'a mut usize, entry: &mut SeriesEntry) 
         advance_whitespace(s, index);
 
         let value = parse_value(s, index);
-        entry.values.push(value);
+        entry.values.push(value); // TODO: support other values
 
         *index += 1;
     }
@@ -82,7 +93,7 @@ pub fn parse_insert(raw_query: &mut str) -> Insertion {
     // TODO: we should tweak things so this check isn't necessary...
     if index >= input.len() {
         entry.time = new_timestamp();
-        return Insertion{ series, entry };
+        return Insertion { series, entry };
     }
 
     entry.time = match parse_timestamp(input, &mut index) {
@@ -90,11 +101,12 @@ pub fn parse_insert(raw_query: &mut str) -> Insertion {
         None => new_timestamp(),
     };
 
-    Insertion{ series, entry }
+    Insertion { series, entry }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::DataValue;
     use crate::lang::insert::{parse_fields, parse_identifier, parse_insert};
     use crate::storage::series::SeriesEntry;
 
@@ -107,38 +119,43 @@ mod tests {
         let mut query = String::from("INSERT test_series,value1=0.5,value2=1 1663644227213092171");
         let entry = parse_insert(&mut query);
         dbg!(entry);
-        // let
     }
 
     #[test]
     fn parses_fields() {
         let mut index = 0;
-        let _query = String::from("INSERT test_series,value1=0.5,value2=1");
-        let mut entry = SeriesEntry {
-            fields: vec![],
-            values: vec![],
-            time: 0,
-        };
-
+        let mut entry = SeriesEntry { fields: vec![], values: vec![], time: 0 };
         parse_fields(b"field1=1", &mut index, &mut entry);
-        dbg!(&entry);
+        assert_eq!(entry.fields[0], String::from("field1"));
+        assert_eq!(entry.values[0], DataValue::from(1.0));
+        assert_eq!(entry.time, 0);
 
-        index = 0;
+        let mut index = 0;
+        let mut entry = SeriesEntry { fields: vec![], values: vec![], time: 0 };
         parse_fields(b"field1=1.0", &mut index, &mut entry);
-        dbg!(&entry);
+        assert_eq!(entry.fields[0], String::from("field1"));
+        assert_eq!(entry.values[0], DataValue::from(1.0));
+        assert_eq!(entry.time, 0);
 
-        index = 0;
+        let mut index = 0;
+        let mut entry = SeriesEntry { fields: vec![], values: vec![], time: 0 };
         parse_fields(b"field1=1.0,field2=3.01", &mut index, &mut entry);
-        dbg!(&entry);
+        assert_eq!(entry.fields, vec![String::from("field1"), String::from("field2")]);
+        assert_eq!(entry.values, vec![DataValue::from(1.0), DataValue::from(3.01)]);
+        assert_eq!(entry.time, 0);
 
-        index = 0;
-        parse_fields(b"field1=1.0, field2=2.345", &mut index, &mut entry);
-        dbg!(&entry);
+        let mut index = 0;
+        let mut entry = SeriesEntry { fields: vec![], values: vec![], time: 0 };
+        parse_fields(b"field1=1.0, field2=true", &mut index, &mut entry);
+        assert_eq!(entry.fields, vec![String::from("field1"), String::from("field2")]);
+        assert_eq!(entry.values, vec![DataValue::from(1.0), DataValue::from(true)]);
+        assert_eq!(entry.time, 0);
     }
 
     #[test]
     fn parses_identifier() {
         let mut index = 0;
+
         let (parsed, ident) = parse_identifier(b"test_series,value1=1", &mut index);
         assert_eq!(parsed, true);
         assert_eq!(ident, b"test_series");
@@ -148,7 +165,6 @@ mod tests {
         assert_eq!(parsed, true);
         assert_eq!(ident, b"value1");
         assert_eq!(index, 19);
-
 
         let (parsed, _ident) = parse_identifier(b"test_series,value1=1 12345", &mut index);
         assert_eq!(parsed, false);
