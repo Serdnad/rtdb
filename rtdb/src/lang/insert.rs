@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 use crate::DataValue;
 
-use crate::lang::util::{advance_whitespace, parse_ascii, parse_timestamp};
+use crate::lang::util::{advance_whitespace, parse_ascii, parse_identifier, parse_timestamp};
 use crate::storage::series::SeriesEntry;
 use crate::util::new_timestamp;
 
@@ -12,8 +12,8 @@ pub struct Insertion {
     pub entry: SeriesEntry,
 }
 
-// TODO: generalize to booleans and strings
-// TODO: return option
+// TODO: generalize to strings
+// TODO: return option in case of failure
 fn parse_value<'a>(s: &'a [u8], index: &'a mut usize) -> DataValue {
     if s[*index..].starts_with(b"true") {
         *index += 4;
@@ -26,31 +26,6 @@ fn parse_value<'a>(s: &'a [u8], index: &'a mut usize) -> DataValue {
     let (val, len) = fast_float::parse_partial::<f64, _>(from_utf8(&s[*index..]).unwrap()).unwrap();
     *index += len;
     DataValue::Float(val)
-}
-
-/// Attempts to parse an identifier. Identifiers must begin with an alphabetic character.
-/// This function assumes that the input has already been converted to lowercase.
-/// This function increases index by the length of the parsed identifier.
-/// TODO: if we change the break condition from not certain characters to support ranges of ascii, we can reuse this
-///     + we should move to new file
-#[inline]
-fn parse_identifier<'a>(s: &'a [u8], index: &'a mut usize) -> (bool, &'a [u8]) {
-    let mut i = 0;
-
-    let first_char = s[*index];
-    if first_char < 0x61 || first_char > 0x7A { // test a-z
-        return (false, b"");
-    }
-
-    for &c in &s[*index..] {
-        i += 1;
-        if !c.is_ascii_alphanumeric() && c != b'_' && c != b'-' {
-            break;
-        }
-    }
-
-    *index += i;
-    (i > 0, &s[*index - i..*index - 1])
 }
 
 fn parse_fields<'a>(s: &'a [u8], index: &'a mut usize, entry: &mut SeriesEntry) {
@@ -67,9 +42,7 @@ fn parse_fields<'a>(s: &'a [u8], index: &'a mut usize, entry: &mut SeriesEntry) 
         parse_ascii("=", s, index);
         advance_whitespace(s, index);
 
-        let value = parse_value(s, index);
-        entry.values.push(value); // TODO: support other values
-
+        entry.values.push(parse_value(s, index));
         *index += 1;
     }
 }
@@ -90,7 +63,6 @@ pub fn parse_insert(raw_query: &mut str) -> Insertion {
     parse_fields(input, &mut index, &mut entry);
     advance_whitespace(input, &mut index);
 
-    // TODO: we should tweak things so this check isn't necessary...
     if index >= input.len() {
         entry.time = new_timestamp();
         return Insertion { series, entry };
@@ -107,7 +79,8 @@ pub fn parse_insert(raw_query: &mut str) -> Insertion {
 #[cfg(test)]
 mod tests {
     use crate::DataValue;
-    use crate::lang::insert::{parse_fields, parse_identifier, parse_insert};
+    use crate::lang::insert::{parse_fields, parse_insert};
+    use crate::lang::util::parse_identifier;
     use crate::storage::series::SeriesEntry;
 
     #[test]
@@ -169,5 +142,16 @@ mod tests {
         let (parsed, _ident) = parse_identifier(b"test_series,value1=1 12345", &mut index);
         assert_eq!(parsed, false);
         assert_eq!(index, 19);
+
+        let mut index = 0;
+        let (parsed, ident) = parse_identifier(b"1identifiers_cannot_start_with_number", &mut index);
+        assert_eq!(parsed, false);
+        assert_eq!(index, 0);
+
+        let mut index = 0;
+        let (parsed, ident) = parse_identifier(b"name-with_ch4rs", &mut index);
+        assert_eq!(parsed, true);
+        assert_eq!(ident, b"name-with_ch4rs");
+        assert_eq!(index, 16);
     }
 }

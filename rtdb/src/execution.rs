@@ -9,8 +9,6 @@ use crate::lang::{Action, SelectQuery};
 use crate::lang::insert::Insertion;
 use crate::storage::series::{RecordCollection, SeriesStorage};
 
-mod query;
-
 pub struct ExecutionEngine<'a> {
     series_storages: Arc<Mutex<HashMap<String, SeriesStorage<'a>>>>,
 }

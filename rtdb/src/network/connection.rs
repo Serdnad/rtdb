@@ -9,7 +9,7 @@ use crate::lang::insert::parse_insert;
 use crate::lang::query::parse_select;
 use crate::network::read_string;
 use crate::network::{ACTION_QUERY, ACTION_INSERT};
-use crate::server::ENGINE;
+use crate::network::server::ENGINE;
 use crate::storage::series::{DataRow, RecordCollection};
 use crate::wire_protocol::insert::build_insert_result;
 use crate::wire_protocol::query::build_query_result;
@@ -98,14 +98,14 @@ impl Connection {
             let result = engine.execute(action);
 
             let elapsed = start.elapsed();
-            println!("{}us", elapsed.as_micros());
+            // println!("{}us", elapsed.as_micros());
 
             match result {
                 ExecutionResult::Query(result) => {
                     let response = build_query_result(&result);
 
                     let elapsed = start.elapsed();
-                    println!("{}us", elapsed.as_micros());
+                    // println!("{}us", elapsed.as_micros());
 
                     // dbg!(&response.len());
                     let len = response.len();
@@ -166,7 +166,7 @@ impl ConnectionPool {
         // self.connections.push(connection);
 
         // TODO: investigate tokio::spawn vs tokio::task::spawn
-        tokio::spawn(async move {
+        tokio::task::spawn(async move {
             connection.start_handle_loop().await;
         });
     }

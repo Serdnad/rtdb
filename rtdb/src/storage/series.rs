@@ -1,11 +1,13 @@
 use std::collections::HashMap;
-use std::fs::{create_dir, OpenOptions, read, read_dir};
+use std::fs::{create_dir, create_dir_all, OpenOptions, read, read_dir};
 use std::io::{Read, Write};
 use std::io::ErrorKind::AlreadyExists;
 use std::str;
+use fnv::FnvHashMap;
 use crate::DataValue;
 
 use crate::lang::SelectQuery;
+use crate::storage::DEFAULT_DATA_DIR;
 use crate::storage::field::{FieldEntry, FieldStorage};
 use crate::wire_protocol::{DataType, FieldDescription};
 
@@ -64,23 +66,23 @@ impl SeriesSummary<'_> {
 pub struct SeriesStorage<'a> {
     pub(crate) series_name: &'a str,
     // summary: SeriesSummary<'a>,
-    field_storages: HashMap<String, FieldStorage>,
+    field_storages: FnvHashMap<String, FieldStorage>,
 }
 
 impl SeriesStorage<'_> {
     pub fn new(series_name: &str) -> SeriesStorage {
-        if let Err(err) = create_dir(series_name) {
+        if let Err(err) = create_dir_all(format!("{}/{}", DEFAULT_DATA_DIR, series_name)) {
             match err.kind() {
                 AlreadyExists => {}
                 _ => panic!("{}", err),
             }
         };
 
-        SeriesStorage { series_name, field_storages: HashMap::new() }
+        SeriesStorage { series_name, field_storages: FnvHashMap::default() }
     }
 
     pub fn load(series_name: &str) -> SeriesStorage {
-        let files = match read_dir(series_name) {
+        let files = match read_dir(format!("{}/{}", DEFAULT_DATA_DIR, series_name)) {
             Ok(files) => files,
             Err(_) => {
                 println!("Create new series");
@@ -129,15 +131,18 @@ impl SeriesStorage<'_> {
     pub fn insert(&mut self, entry: SeriesEntry) {
         for i in 0..entry.fields.len() {
             let field = &entry.fields[i];
-            let value = entry.values[i].clone();
+            let value = entry.values[i];
 
-            if !self.field_storages.contains_key(field) {
-                let new_storage = FieldStorage::load(self.series_name, &field);
-                self.field_storages.insert(field.to_owned(), new_storage);
+            match self.field_storages.get_mut(field) {
+                None => {
+                    let mut new_storage = FieldStorage::load(self.series_name, &field);
+                    new_storage.insert(FieldEntry { value, time: entry.time });
+                    self.field_storages.insert(field.to_owned(), new_storage);
+                }
+                Some(field_storage) => {
+                    field_storage.insert(FieldEntry { value, time: entry.time })
+                }
             }
-
-            let field_storage = self.field_storages.get_mut(field).unwrap();
-            field_storage.insert(FieldEntry { value, time: entry.time })
         }
     }
 }
@@ -145,7 +150,8 @@ impl SeriesStorage<'_> {
 // TODO: move
 #[derive(Debug, serde::Serialize, PartialEq)]
 pub struct RecordCollection {
-    pub fields: Vec<FieldDescription>, // TODO: maybe we should insert field types into here, or actually maybe we can get them from the series? hm
+    pub fields: Vec<FieldDescription>,
+    // TODO: maybe we should insert field types into here, or actually maybe we can get them from the series? hm
     pub rows: Vec<DataRow>,
 }
 
@@ -220,7 +226,7 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
         FieldDescription { name: names[i].to_owned(), data_type }
     }).collect();
 
-    RecordCollection { fields , rows }
+    RecordCollection { fields, rows }
 }
 
 

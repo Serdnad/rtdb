@@ -4,8 +4,8 @@ use std::net::TcpStream;
 use byteorder::{BigEndian, ReadBytesExt};
 
 pub use rtdb::execution::{ExecutionResult, InsertionResult, QueryResult};
-use rtdb::wire_protocol::parse_result;
 pub use rtdb::wire_protocol::DataType;
+use rtdb::wire_protocol::parse_result;
 
 pub struct Client {
     stream: TcpStream,

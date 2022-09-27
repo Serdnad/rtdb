@@ -16,8 +16,8 @@ fn main() {
     // test_postgres_reads(&mut client);
 
 
-    rtdb_test_reads(&mut client);
-    // rtdb_test_inserts(&mut client);
+    // rtdb_test_reads(&mut client);
+    rtdb_test_inserts(&mut client);
 
     // test_postgres()
 }
@@ -42,7 +42,7 @@ fn rtdb_test_reads(client: &mut rtdb_client::Client) {
 fn rtdb_test_inserts(client: &mut rtdb_client::Client) {
     let start = time::Instant::now();
 
-    let N = 10001;
+    let N = 1000001;
     for _ in 0..N {
         let _ = client.execute("INSERT test_series,field1=123.0,field2=-321.0");
     }

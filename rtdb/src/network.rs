@@ -5,6 +5,7 @@ use crate::network::connection::ConnectionPool;
 
 mod tcp_handler;
 pub mod connection;
+pub mod server;
 
 const PORT: &str = "2345";
 

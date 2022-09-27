@@ -1,3 +1,7 @@
+// TODO: reassess whether we even want to ship an HTTP restish server out of the box. The performance
+//  on it isn't great, and it really shouldn't be used for anything other than the occasional ad hoc
+//  query - for which the CLI client is still a better choice.
+
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;

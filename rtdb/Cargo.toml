@@ -46,6 +46,10 @@ byteorder = "1.4.3"
 
 smallvec = "1.9.0"
 
+# Faster* hashmaps
+fnv = "1.0.3"
+
+
 
 [dev-dependencies]
 pprof = { version = "0.10", features = ["flamegraph", "criterion"] }

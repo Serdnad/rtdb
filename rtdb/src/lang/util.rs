@@ -22,8 +22,37 @@ pub fn parse_ascii(tag: &'static str, s: &[u8], index: &mut usize) -> bool {
     }
 }
 
-/// TODO: make this more sophisticated in what kind of timestamps it can accept
-// TODO: move this somewhere else
+/// Attempts to parse an identifier. Identifiers must begin with an alphabetic character, and
+/// afterwards may only container alphanumeric characters, '-', or '_'.
+///
+/// This function assumes that the input has already been converted to lowercase.
+/// This function increases index by the length of the parsed identifier.
+#[inline]
+pub fn parse_identifier<'a>(s: &'a [u8], index: &'a mut usize) -> (bool, &'a [u8]) {
+    let mut i = 0;
+
+    let first_char = s[*index];
+    if first_char < 0x61 || first_char > 0x7A { // test a-z
+        return (false, b"");
+    }
+    i += 1;
+
+    for &c in &s[*index..] {
+        if !c.is_ascii_alphanumeric() && c != b'_' && c != b'-' {
+            break;
+        }
+        i += 1;
+    }
+
+    *index += i;
+    (i > 0, &s[*index - i..*index - 1])
+}
+
+/// Attempts to parse a timestamp starting from index.
+///
+/// Currently accepts the following formats:
+/// - nanoseconds from Unix epoch
+/// - TODO: support additional formats
 #[inline]
 pub fn parse_timestamp(s: &[u8], index: &mut usize) -> Option<i64> {
     let mut i = 0;

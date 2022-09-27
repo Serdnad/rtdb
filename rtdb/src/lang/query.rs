@@ -1,7 +1,5 @@
 use std::str::from_utf8;
 
-use nom::{AsBytes};
-
 use crate::lang::SelectQuery;
 use crate::lang::util::{advance_whitespace, parse_ascii, parse_timestamp};
 
@@ -92,13 +90,13 @@ fn parse_fields<'a>(s: &'a [u8], index: &mut usize, fields: &mut Vec<&'a str>) {
     *index = i;
 }
 
-// TODO: format doc lol
-/// Parses a time range denoted by either
+/// Parses a time range from one of the following formats:
 ///
-/// - AFTER [timestamp]
-/// - BEFORE [timestamp]
-/// - AFTER [timestamp] BEFORE [timestamp]
-///
+/// ```markdown
+/// AFTER <timestamp>
+/// BEFORE <timestamp>
+/// AFTER <timestamp> BEFORE <timestamp>
+/// ```
 /// and updates the given query.
 fn parse_time_range<'a>(s: &'a [u8], mut index: &mut usize, query: &mut SelectQuery<'a>) {
     if parse_ascii("after", &s, &mut index) {

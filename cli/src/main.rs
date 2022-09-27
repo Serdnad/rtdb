@@ -5,6 +5,7 @@ use rustyline::error::ReadlineError::{Eof, Interrupted};
 use tikv_jemallocator::Jemalloc;
 
 use rtdb_client::{Client, ExecutionResult};
+use crate::table::to_table;
 
 mod table;
 

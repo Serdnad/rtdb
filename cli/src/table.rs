@@ -1,5 +1,7 @@
+use chrono::{DateTime, Utc};
+use rtdb_client::{DataType, QueryResult};
 
-fn to_table(data: &QueryResult) -> String {
+pub fn to_table(data: &QueryResult) -> String {
     let mut s = String::from("│ ");
     s.push_str("timestamp                │ ");
     s.push_str(&data.records.fields.iter().map(|f| f.name.to_owned()).collect::<Vec<_>>().join("   │ "));
@@ -10,7 +12,11 @@ fn to_table(data: &QueryResult) -> String {
     // s.push_str(&"-".repeat(header_len));
     // s.push_str(&format!("{:_^8}"));
 
-    for row in &data.records.rows[0..20] {
+    for (i, row) in data.records.rows.iter().enumerate() {
+        if i > 20 {
+            break;
+        }
+
         let now = chrono::NaiveDateTime::from_timestamp(row.time / 1e9 as i64, 0); // TODO: nsecs
         let dt: DateTime<Utc> = DateTime::from_utc(now, Utc);
 

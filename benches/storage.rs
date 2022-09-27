@@ -1,20 +1,25 @@
+use std::fs;
 use std::fs::File;
 
-use criterion::{black_box, Criterion, criterion_group, criterion_main};
 use rtdb::DataValue;
 
 use rtdb::lang::SelectQuery;
 use rtdb::storage::field::{FieldEntry, FieldStorage};
 use rtdb::storage::field_block::FieldStorageBlock;
 use rtdb::storage::field_index::FieldStorageBlockSummary;
-use rtdb::storage::series::{merge_records, SeriesStorage};
+use rtdb::storage::series::{merge_records, SeriesEntry, SeriesStorage};
+
+use criterion::{Criterion, Throughput, BenchmarkId, criterion_group, criterion_main, black_box};
+use pprof::criterion::{PProfProfiler, Output};
+use rtdb::util::new_timestamp;
+
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("write field [single]", |b| {
-        let mut s = FieldStorage::load("tests", "value");
+        let mut s = FieldStorage::load("bench_tests", "field1");
 
         b.iter(|| {
-            s.insert(FieldEntry { value: 123.0, time: 0 })
+            s.insert(FieldEntry { value: DataValue::from(123.0), time: 0 })
         })
     });
 
@@ -184,6 +189,18 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
+    c.bench_function("series write", |b| {
+        // fs::remove_dir("bench_test");
+        let mut s = SeriesStorage::new("bench_test");
+
+        b.iter(|| {
+            s.insert(SeriesEntry {
+                fields: vec![String::from("field1"), String::from("field2")],
+                values: vec![DataValue::from(123.0), DataValue::from(false)],
+                time: new_timestamp(),
+            })
+        })
+    });
 
     c.bench_function("read series", |b| {
         let s = SeriesStorage::load("test_series");
@@ -248,5 +265,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     // });
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group! {
+    name = benches;
+    config = Criterion::default()
+        .with_profiler(
+            PProfProfiler::new(100, Output::Flamegraph(None))
+        );
+    targets = criterion_benchmark
+}
+
 criterion_main!(benches);
