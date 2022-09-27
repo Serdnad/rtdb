@@ -1,16 +1,16 @@
 use std::collections::HashMap;
-
 use std::sync::{Arc, Mutex};
 
+use fnv::FnvHashMap;
 use serde::Serialize;
-
 
 use crate::lang::{Action, SelectQuery};
 use crate::lang::insert::Insertion;
-use crate::storage::series::{RecordCollection, SeriesStorage};
+use crate::RecordCollection;
+use crate::storage::series::SeriesStorage;
 
 pub struct ExecutionEngine<'a> {
-    series_storages: Arc<Mutex<HashMap<String, SeriesStorage<'a>>>>,
+    series_storages: Arc<Mutex<FnvHashMap<String, SeriesStorage<'a>>>>,
 }
 
 #[derive(Serialize)]
@@ -35,7 +35,7 @@ pub struct InsertionResult {
 
 impl ExecutionEngine<'_> {
     pub fn new<'a>() -> ExecutionEngine<'a> {
-        ExecutionEngine { series_storages: Arc::new(Mutex::new(HashMap::new())) }
+        ExecutionEngine { series_storages: Arc::new(Mutex::new(HashMap::default())) }
     }
 
     pub fn execute(&self, action: Action) -> ExecutionResult {
@@ -48,16 +48,25 @@ impl ExecutionEngine<'_> {
     fn execute_select(&self, query: SelectQuery) -> ExecutionResult {
         // TODO: tmp
         let mut storages = self.series_storages.lock().unwrap();
-        if !storages.contains_key(&query.series.to_owned()) {
-            println!("LOAD SERIES");
-            storages.insert(query.series.to_owned(), SeriesStorage::load("test_series")); // TODO: bad
+        match storages.get(&query.series.to_owned()) {
+            Some(storage) => {
+                let records = storage.read(query);
+                let count = records.rows.len();
+                ExecutionResult::Query(QueryResult { records, count })
+            }
+            None => {
+                let series_name = (&query).series.to_owned();
+
+                let storage = SeriesStorage::load("test_series"); // TODO: BAD
+                let records = storage.read(query);
+                let count = &records.rows.len();
+                let result = ExecutionResult::Query(QueryResult { records, count: *count });
+
+                storages.insert(series_name, storage); // TODO: bad
+
+                result
+            }
         }
-
-        let storage = &storages[&query.series.to_owned()];
-        let records = storage.read(query);
-        let count = &records.rows.len();
-
-        ExecutionResult::Query(QueryResult { records, count: *count })
     }
 
     fn execute_insert(&self, insertion: Insertion) -> ExecutionResult {

@@ -1,9 +1,8 @@
-
 use criterion::{black_box, Criterion, criterion_group, criterion_main};
+use pprof::criterion::{PProfProfiler, Output};
 
 
 
-use rtdb::lang::{parse};
 use rtdb::lang::insert::parse_insert;
 use rtdb::lang::query::parse_select;
 
@@ -31,13 +30,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("parse simple select query 3", |b| {
-        b.iter(|| {
-            let mut query = String::from("SELECT test_series[ field1, field2,   field3,field4, field5, field6, field7  , field8 ]");
-            parse(&mut query).unwrap();
-        })
-    });
-
     c.bench_function("parse short insert", |b| {
         b.iter(|| {
             let mut query = String::from("INSERT test_series,field1=1.0");
@@ -53,5 +45,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+
+criterion_group!{
+    name = benches;
+    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    targets = criterion_benchmark
+}
 criterion_main!(benches);

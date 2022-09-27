@@ -5,9 +5,8 @@ use std::str::from_utf8;
 use byteorder::{BigEndian, ReadBytesExt};
 use tokio::time;
 
-use crate::DataValue;
+use crate::{DataRow, DataValue, RecordCollection};
 use crate::execution::{ExecutionResult, QueryResult};
-use crate::storage::series::{DataRow, RecordCollection};
 use crate::wire_protocol::{DataType, FieldDescription};
 use crate::wire_protocol::insert::build_insert_result;
 
@@ -225,7 +224,7 @@ mod tests {
 
     use crate::DataValue;
     use crate::execution::{ExecutionResult, QueryResult};
-    use crate::storage::series::{DataRow, RecordCollection};
+    use crate::{DataRow, RecordCollection};
     use crate::wire_protocol::{DataType, FieldDescription, parse_result};
     use crate::wire_protocol::query::{build_query_result, ByteReader, parse_data_row, parse_field_description, parse_field_descriptions, write_data_row, write_field_description};
 

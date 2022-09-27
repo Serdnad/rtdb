@@ -6,6 +6,7 @@ pub mod field;
 mod float_field;
 pub mod field_block;
 pub mod field_index;
+mod field_float;
 
 
 // TODO: use a default path, e.g. /var/lib/rtdb/data

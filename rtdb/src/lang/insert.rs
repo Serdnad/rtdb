@@ -13,21 +13,30 @@ pub struct Insertion {
 }
 
 // TODO: generalize to strings
-// TODO: return option in case of failure
-fn parse_value<'a>(s: &'a [u8], index: &'a mut usize) -> DataValue {
+/// Attempt to parse a value, starting from s at the given index.
+///
+/// A value may be a bool, in the form of an unqouted "true" or "false", or a float.
+/// TODO: support parsing strings
+fn parse_value<'a>(s: &'a [u8], index: &'a mut usize) -> Result<DataValue, String> {
     if s[*index..].starts_with(b"true") {
         *index += 4;
-        return DataValue::Bool(true);
+        return Ok(DataValue::Bool(true));
     } else if s[*index..].starts_with(b"false") {
         *index += 5;
-        return DataValue::Bool(false);
+        return Ok(DataValue::Bool(false));
     }
 
-    let (val, len) = fast_float::parse_partial::<f64, _>(from_utf8(&s[*index..]).unwrap()).unwrap();
-    *index += len;
-    DataValue::Float(val)
+
+    if let Ok((val, len)) = fast_float::parse_partial::<f64, _>(from_utf8(&s[*index..]).unwrap()) {
+        *index += len;
+        return Ok(DataValue::Float(val))
+    }
+
+    Err(format!("failed to parse a value at pos: {}", index))
 }
 
+// TODO: return option
+#[inline]
 fn parse_fields<'a>(s: &'a [u8], index: &'a mut usize, entry: &mut SeriesEntry) {
     while *index < s.len() {
         advance_whitespace(s, index);
@@ -42,11 +51,18 @@ fn parse_fields<'a>(s: &'a [u8], index: &'a mut usize, entry: &mut SeriesEntry) 
         parse_ascii("=", s, index);
         advance_whitespace(s, index);
 
-        entry.values.push(parse_value(s, index));
-        *index += 1;
+        match parse_value(s, index) {
+            Err(e) => panic!("{}", e),
+            Ok(value) => {
+                entry.values.push(value);
+                *index += 1;
+            }
+        }
     }
 }
 
+/// Attempt to parse an insert statement.
+/// TODO: return Result, and handle invalid statements
 pub fn parse_insert(raw_query: &mut str) -> Insertion {
     raw_query.make_ascii_lowercase();
 

@@ -4,13 +4,12 @@ use std::io::{Read, Write};
 use std::io::ErrorKind::AlreadyExists;
 use std::str;
 use fnv::FnvHashMap;
-use crate::DataValue;
+use crate::{DataRow, DataValue, RecordCollection};
 
 use crate::lang::SelectQuery;
 use crate::storage::DEFAULT_DATA_DIR;
 use crate::storage::field::{FieldEntry, FieldStorage};
 use crate::wire_protocol::{DataType, FieldDescription};
-
 
 /// A series entry is a collection of values, each corresponding to a different field under the
 /// same series, all sharing the same timestamp.
@@ -19,7 +18,7 @@ pub struct SeriesEntry {
     pub fields: Vec<String>,
     pub values: Vec<DataValue>,
 
-    // Timestamp as nanoseconds since Unix epoch
+    /// Timestamp as nanoseconds since Unix epoch
     pub time: i64,
 }
 
@@ -29,43 +28,10 @@ pub struct SeriesSummary<'a> {
     fields: Vec<String>,
 }
 
-impl SeriesSummary<'_> {
-    pub fn new(name: &str) -> SeriesSummary {
-        let summary = SeriesSummary { name, fields: vec![] };
-        summary.write();
-        summary
-    }
-
-    pub fn load(name: &str) -> SeriesSummary {
-        let bytes = read(name).unwrap();
-        let data = str::from_utf8(bytes.as_slice()).unwrap();
-
-        SeriesSummary {
-            name,
-            fields: data.split(" ").collect::<Vec<&str>>().iter().map(|&s| s.to_owned()).collect(),
-        }
-    }
-
-    /// Write series summary to disk
-    fn write(&self) {
-        let mut f = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(self.name)
-            .unwrap(); // tODO: keep handle and rename
-        //
-        // // let data = rkyv::to_bytes(&self).unwrap();
-        // // f.write(&data[..]);
-        //
-        f.write(self.fields.join(" ").into_bytes().as_slice());
-    }
-}
-
-
 #[derive(Debug)]
 pub struct SeriesStorage<'a> {
     pub(crate) series_name: &'a str,
-    // summary: SeriesSummary<'a>,
+    fields: Vec<FieldDescription>,
     field_storages: FnvHashMap<String, FieldStorage>,
 }
 
@@ -78,7 +44,7 @@ impl SeriesStorage<'_> {
             }
         };
 
-        SeriesStorage { series_name, field_storages: FnvHashMap::default() }
+        SeriesStorage { series_name, fields: vec![], field_storages: FnvHashMap::default() }
     }
 
     pub fn load(series_name: &str) -> SeriesStorage {
@@ -95,21 +61,27 @@ impl SeriesStorage<'_> {
             let file = entry.unwrap().file_name();
             let filename = file.to_str().unwrap();
             if !filename.ends_with("_index") {
-                fields.push(filename.to_owned());
+                // TODO: figure out what data type a field is
+                fields.push(FieldDescription { name: filename.to_owned(), data_type: DataType::Float });
             }
         }
 
-        let field_storages = fields.iter().map(|f| (f.to_owned(), FieldStorage::load(series_name, f))).collect();
+        let field_storages = fields.iter().map(|f| (f.name.to_owned(), FieldStorage::load(series_name, &f.name))).collect();
 
         SeriesStorage {
             series_name,
+            fields,
             field_storages,
         }
     }
 
     pub fn read(&self, query: SelectQuery) -> RecordCollection {
+        if Some(query.end) < Some(query.start) {
+            return RecordCollection { fields: vec![], rows: vec![] };
+        }
+
         let fields = match query.fields.is_empty() {
-            true => self.field_storages.keys().map(|s| s.as_str()).collect(), // TODO: we should just keep this around
+            true => self.fields.iter().map(|f| f.name.as_str()).collect(),
             false => query.fields,
         };
 
@@ -147,30 +119,22 @@ impl SeriesStorage<'_> {
     }
 }
 
-// TODO: move
-#[derive(Debug, serde::Serialize, PartialEq)]
-pub struct RecordCollection {
-    pub fields: Vec<FieldDescription>,
-    // TODO: maybe we should insert field types into here, or actually maybe we can get them from the series? hm
-    pub rows: Vec<DataRow>,
-}
-
-// TODO: move
-#[derive(Debug, serde::Serialize, PartialEq)]
-pub struct DataRow {
-    pub time: i64,
-    pub elements: Vec<Option<DataValue>>,
-}
-
-// TODO [urgent]: this doesn't include timestamps...
+/// Merge "columns" of fields into a single vector of records, sorting and matching entries by
+/// their timestamp.
 pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> RecordCollection {
     let field_count = fields.len();
+
+    // TODO: I don't this check does exactly what we want to do, but at some point we have to guard
+    //  against empty results
+    if entries.iter().any(|col| col.is_empty()) {
+        return RecordCollection{ fields: vec![], rows: vec![] };
+    }
 
     let max_min_rows = match entries.iter().map(|f| f.len()).min() {
         None => return RecordCollection { fields: vec![], rows: vec![] },
         Some(min) => min,
     };
-    let mut rows = Vec::with_capacity(max_min_rows); // TODO: pick the max of all field lens
+    let mut rows = Vec::with_capacity(max_min_rows);
 
     let mut next_elems: Vec<_> = entries.iter().map(|f| &f[0]).collect();
     let mut indices = vec![0; entries.len()];

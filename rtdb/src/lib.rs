@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 
 use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize, Serialize};
+use crate::wire_protocol::FieldDescription;
 
 pub mod storage;
 pub mod execution;
@@ -14,6 +15,18 @@ pub mod network;
 pub mod users;
 
 
+#[derive(Debug, serde::Serialize, PartialEq)]
+pub struct RecordCollection {
+    pub fields: Vec<FieldDescription>,
+    pub rows: Vec<DataRow>,
+}
+
+#[derive(Debug, serde::Serialize, PartialEq)]
+pub struct DataRow {
+    pub time: i64,
+    pub elements: Vec<Option<DataValue>>,
+}
+
 #[derive(Archive, Copy, Clone, Deserialize, Serialize, Debug, PartialEq, serde::Serialize)]
 #[archive(compare(PartialEq))]
 #[archive_attr(derive(CheckBytes, Debug))]
@@ -21,7 +34,6 @@ pub enum DataValue {
     Bool(bool),
     Float(f64),
 }
-
 
 impl From<bool> for DataValue {
     fn from(b: bool) -> Self {

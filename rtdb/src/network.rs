@@ -33,12 +33,16 @@ pub const ACTION_QUERY: u8 = 0x01;
 pub const ACTION_INSERT: u8 = 0x02;
 
 /// Consumes a UCSD string, with a length specified as a u16.
-async fn read_string(stream: &mut TcpStream) -> String {
-    let len = stream.read_u16().await.unwrap();
-    let mut buffer = vec![0; len as usize]; // TODO: brendan says we can optimize (null terminator??)
+#[inline]
+async fn read_string(stream: &mut TcpStream) -> Option<String> {
+    let len = match stream.read_u16().await {
+        Ok(len) => len,
+        Err(_) => return None,
+    };
+    let mut buffer = vec![0; len as usize];
 
     stream.read_exact(&mut buffer).await;
-    from_utf8(&buffer).unwrap().to_owned()
+    Some(from_utf8(&buffer).unwrap().to_owned())
 }
 
 #[cfg(test)]

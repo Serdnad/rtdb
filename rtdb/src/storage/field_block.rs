@@ -25,13 +25,13 @@ const BLOCK_SIZE: usize = 2400 + PTR_SIZE;
 const ENTRY_SIZE: usize = size_of::<FieldEntry>();
 
 /// The max number of entries recorded in a single block.
-pub(crate) const ENTRIES_PER_BLOCK: usize = (BLOCK_SIZE - 8) / ENTRY_SIZE;
+pub const ENTRIES_PER_BLOCK: usize = (BLOCK_SIZE - 8) / ENTRY_SIZE;
 
 // block, with header and stuff
 // inspiration: https://docs.influxdata.com/influxdb/v1.5/concepts/storage_engine/#compression
 /// A block of measurements for a single field, under a single series.
 /// Measurements are first stored in a block, and once a block fills, it is flushed to disk.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)] // TODO: we shouldn't be cloning this, I was just lazy to refactor
 pub struct FieldStorageBlock {
     pub(crate) entries: Vec<FieldEntry>,
 }
@@ -48,17 +48,9 @@ impl FieldStorageBlock {
             return self.entries[..].to_vec();
         }
 
-
-        // TODO: validate input
-        // if Some(from) > Some(until) {
-        //     println!("UH OH!");
-        //     return vec![];
-        // }
-
-
         let mut start_index = 0;
         if let Some(from) = from {
-            // TODO: check against block bounds
+            // TODO: check against block bounds - actually this should be done by the field, or block manager, but not this low
 
             // TODO: implement binary search for this
             let index = self.entries.iter().position(|entry| entry.time >= from);
@@ -70,7 +62,7 @@ impl FieldStorageBlock {
 
         let mut end_index = self.entries.len();
         if let Some(until) = until {
-            // TODO: check against block bounds
+            // TODO: check against block bounds - see ^
 
             // TODO: implement binary search for this
             let index = self.entries.iter().rposition(|entry| entry.time <= until);
@@ -126,9 +118,10 @@ impl FieldStorageBlock {
     }
 
     /// Flush the block's summary to out, typically an index file.
-    pub fn write_summary<T: Write>(&self, out: &mut T) {
+    pub fn write_summary<T: Write>(&self, out: &mut T) -> FieldStorageBlockSummary {
         let summary = FieldStorageBlockSummary::from_entries(&self.entries);
         summary.write(out);
+        summary
     }
 }
 

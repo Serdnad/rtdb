@@ -3,7 +3,7 @@ use std::str::from_utf8;
 #[inline]
 pub fn advance_whitespace(s: &[u8], index: &mut usize) {
     let mut i = *index;
-    while i < s.len() && s[i] == b' ' {
+    while i < s.len() && s[i].is_ascii_whitespace() {
         i += 1;
     }
 
@@ -77,7 +77,6 @@ mod tests {
     use crate::lang::util::{advance_whitespace, parse_ascii};
 
     #[test]
-    // TODO: tabs, newlines, and carriage returns
     fn advances_whitespace() {
         let mut index = 0;
 
@@ -87,11 +86,17 @@ mod tests {
         advance_whitespace(b"   test", &mut index);
         assert_eq!(index, 3);
 
-        advance_whitespace(b"test", &mut index);
-        assert_eq!(index, 3);
+        advance_whitespace(b"   \ttest", &mut index);
+        assert_eq!(index, 4);
 
-        advance_whitespace(b"     ", &mut index);
+        advance_whitespace(b"    \ntest", &mut index);
         assert_eq!(index, 5);
+
+        advance_whitespace(b"   test", &mut index);
+        assert_eq!(index, 5);
+
+        advance_whitespace(b"      ", &mut index);
+        assert_eq!(index, 6);
     }
 
     #[test]

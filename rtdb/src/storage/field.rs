@@ -114,10 +114,11 @@ impl FieldStorage {
         let end_block = self.block_summaries.len();
 
         let mut block_manager = self.block_manager.lock().unwrap();
-        let records = (start_block..end_block).flat_map(|offset| {
+        let mut records: Vec<_> = (start_block..end_block).flat_map(|offset| {
             let block = block_manager.load(offset);
             block.read(start, end)
         }).collect();
+        records.extend(self.curr_block.read(start, end));
 
         records
     }
@@ -125,12 +126,19 @@ impl FieldStorage {
     pub fn insert(&mut self, entry: FieldEntry) {
         // we first attempt to write to the current block, and only write to disk if the block is
         // filled. TODO: what does this mean for data reliability?. TODO: move into curr block
-        // TODO: this logic should probably be moved into block manager, right? maybe? would at least remove need for file handle
+        // TODO: this logic should probably be m/oved into block manager, right? maybe? would at least remove need for file handle
+
+        // let block = self.curr_block;
+
         match self.curr_block.has_space() {
             true => self.curr_block.insert(entry),
             false => {
                 self.curr_block.write_data(&mut self.data_file_handle);
-                self.curr_block.write_summary(&mut self.index_file_handle);
+                let summary = self.curr_block.write_summary(&mut self.index_file_handle);
+                self.block_summaries.push(summary);
+
+                let mut block_manager = self.block_manager.lock().unwrap();
+                block_manager.blocks.push(self.curr_block.clone());
 
                 self.curr_block = FieldStorageBlock::new();
                 self.curr_block.insert(entry);
