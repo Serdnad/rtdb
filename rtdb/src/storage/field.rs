@@ -7,12 +7,12 @@ use std::sync::{Arc, Mutex};
 use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize, Serialize};
 use crate::DataValue;
+use crate::storage::block_manager::BlockManager;
 use crate::storage::DEFAULT_DATA_DIR;
 
 use crate::storage::field_block::FieldStorageBlock;
 use crate::storage::field_index::FieldStorageBlockSummary;
 use crate::wire_protocol::DataType;
-
 
 // TODO: One idea is to make this generic, and have different implementations for each kind of supported
 //  data type.
@@ -27,7 +27,6 @@ pub struct FieldEntry {
 
     pub value: DataValue,
 }
-
 
 #[derive(Debug)]
 pub struct FieldStorage {
@@ -46,38 +45,6 @@ pub struct FieldStorage {
     // todo
     block_manager: Arc<Mutex<BlockManager>>,
 }
-
-/// BlockManager is responsible for intelligently caching field storage blocks in memory, loading
-/// them from disk when necessary.
-#[derive(Debug)]
-struct BlockManager {
-    data_file: File,
-
-    // key is the block index
-    // TODO: I wonder if this would be better as a vec, considering the index is always sequential.
-    //  I might expect that to give us faster access
-    blocks: Vec<FieldStorageBlock>,
-}
-
-impl BlockManager {
-    pub fn new(data_file: File) -> BlockManager {
-        BlockManager {
-            data_file,
-            blocks: vec![],
-        }
-    }
-
-    pub fn load(&mut self, block_offset: usize) -> &FieldStorageBlock {
-        if block_offset < self.blocks.len() {
-            return &self.blocks[block_offset];
-        }
-
-        let block = FieldStorageBlock::load(&self.data_file, block_offset);
-        self.blocks.push(block);
-        &self.blocks[block_offset]
-    }
-}
-
 
 impl FieldStorage {
     // TODO: actually, should a lot of this work be moved to the block manager?

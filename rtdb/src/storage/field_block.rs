@@ -33,7 +33,7 @@ pub const ENTRIES_PER_BLOCK: usize = (BLOCK_SIZE - 8) / ENTRY_SIZE;
 /// Measurements are first stored in a block, and once a block fills, it is flushed to disk.
 #[derive(Debug, PartialEq, Clone)] // TODO: we shouldn't be cloning this, I was just lazy to refactor
 pub struct FieldStorageBlock {
-    pub(crate) entries: Vec<FieldEntry>,
+    pub entries: Vec<FieldEntry>,
 }
 
 impl FieldStorageBlock {
@@ -109,7 +109,7 @@ impl FieldStorageBlock {
     pub fn write_data<T: Write>(&self, out: &mut T) {
         // TODO: at some point we need to optimize timestamps for storage, and data too
 
-        let bytes = rkyv::to_bytes::<_, 4096>(&self.entries).expect("failed to serialize Field Entries");
+        let bytes = rkyv::to_bytes::<_, BLOCK_SIZE>(&self.entries).expect("failed to serialize Field Entries");
         // let deserialized = rkyv::from_bytes::<Vec<FieldEntry>>(&bytes).expect("failed to deserialize vec");
         // dbg!(deserialized);
 

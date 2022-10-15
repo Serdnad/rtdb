@@ -1,18 +1,16 @@
-use std::fs;
 use std::fs::File;
 
-use rtdb::DataValue;
+use criterion::{black_box, Criterion, criterion_group, criterion_main};
+use pprof::criterion::{Output, PProfProfiler};
 
+use rtdb::DataValue;
 use rtdb::lang::SelectQuery;
+use rtdb::storage::block_bool::{deserialize_bools, serialize_bools};
 use rtdb::storage::field::{FieldEntry, FieldStorage};
 use rtdb::storage::field_block::FieldStorageBlock;
 use rtdb::storage::field_index::FieldStorageBlockSummary;
 use rtdb::storage::series::{merge_records, SeriesEntry, SeriesStorage};
-
-use criterion::{Criterion, Throughput, BenchmarkId, criterion_group, criterion_main, black_box};
-use pprof::criterion::{PProfProfiler, Output};
 use rtdb::util::new_timestamp;
-
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("write field [single]", |b| {
@@ -56,6 +54,40 @@ fn criterion_benchmark(c: &mut Criterion) {
                         a.reverse()
                     }
                 });
+        })
+    });
+
+
+    c.bench_function("bool_ser_ser big", |b| {
+        let mut vals = black_box(vec![]);
+
+        for i in 0..8000 {
+            match i % 3 {
+                2 => vals.push(Some(true)),
+                1 => vals.push(Some(false)),
+                _ => vals.push(None),
+            }
+        }
+
+        b.iter(|| {
+            let serialized = serialize_bools(&vals);
+        })
+    });
+
+    c.bench_function("bool_ser_deser big", |b| {
+        let mut vals = black_box(vec![]);
+
+        for i in 0..8000 {
+            match i % 3 {
+                2 => vals.push(Some(true)),
+                1 => vals.push(Some(false)),
+                _ => vals.push(None),
+            }
+        }
+
+        let serialized = serialize_bools(&vals);
+        b.iter(|| {
+            let deserialized = deserialize_bools(&serialized);
         })
     });
 
@@ -215,54 +247,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             });
         })
     });
-
-
-    //
-
-    // c.bench_function("merge alternating records", |b| {
-    //     b.iter(|| {
-    //         let entries = vec![
-    //             vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 3 }],
-    //             vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
-    //         ];
-    //
-    //         let records = merge_records(entries, vec!["field1", "field2"]);
-    //     })
-    // });
-    //
-    // c.bench_function("merge mixed records", |b| {
-    //     b.iter(|| {
-    //         let entries = vec![
-    //             vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 3 }, FieldEntry { value: 3.0, time: 4 }, FieldEntry { value: 4.0, time: 5 }],
-    //             vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
-    //         ];
-    //
-    //         let records = merge_records(entries, vec!["field1", "field2"]);
-    //     })
-    // });
-
-    // c.bench_function("write field [multiple unbatched]", |b| {
-    //     let vals: Vec<f64> = (0..1000).map(|x| x as f64).collect();
-    //
-    //     b.iter(|| {
-    //         for &val in &vals {
-    //             s.insert(FieldEntry { value: 123.0, time: 0 })
-    //         }
-    //     })
-    // });
-
-    // c.bench_function("read", |b| b.iter(|| {
-    //     s.read::<i32>();
-    // }));
-
-    // c.bench_function("read block", |b| {
-    //     let bytes = read("test_series_value1").unwrap();
-    //     b.iter(|| {
-    //         // rkyv::check_archived_root::<Vec<FieldEntry>>(&bytes[..]).unwrap();
-    //         black_box(1 + 1);
-    //         let a = unsafe { rkyv::archived_root::<Vec<FieldEntry>>(&bytes[..]) };
-    //     })
-    // });
 }
 
 criterion_group! {

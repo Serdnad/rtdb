@@ -1,0 +1,15 @@
+what's next?
+
+_ support modifiers on fields:
+    _ last
+    _ first?
+    _ min
+    _ max
+    _ mean
+
+    _ support parsing in query language
+
+[X] migrate to parking lot - NOPE. Doesn't support async :(
+
+
+[_] Figure out WAL thing

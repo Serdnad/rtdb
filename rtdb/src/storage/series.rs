@@ -80,9 +80,9 @@ impl SeriesStorage<'_> {
             return RecordCollection { fields: vec![], rows: vec![] };
         }
 
-        let fields = match query.fields.is_empty() {
+        let fields: Vec<&str> = match query.fields.is_empty() {
             true => self.fields.iter().map(|f| f.name.as_str()).collect(),
-            false => query.fields,
+            false => query.fields.iter().map(|f| f.name).collect(),
         };
 
         let records: Vec<Vec<FieldEntry>> = fields.iter().map(|&field| {
@@ -127,7 +127,7 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
     // TODO: I don't this check does exactly what we want to do, but at some point we have to guard
     //  against empty results
     if entries.iter().any(|col| col.is_empty()) {
-        return RecordCollection{ fields: vec![], rows: vec![] };
+        return RecordCollection { fields: vec![], rows: vec![] };
     }
 
     let max_min_rows = match entries.iter().map(|f| f.len()).min() {
@@ -198,7 +198,7 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
 mod tests {
     use std::{fs};
     use crate::DataValue;
-    use crate::lang::SelectQuery;
+    use crate::lang::{Aggregation, FieldSelection, SelectQuery};
     use crate::storage::field::FieldEntry;
     use crate::storage::field_block::ENTRIES_PER_BLOCK;
     use crate::storage::series::{DataRow, merge_records, SeriesEntry, SeriesStorage};
@@ -294,11 +294,21 @@ mod tests {
         // }
 
         dbg!(&s.field_storages.get("field1").unwrap());
-        let r = s.read(SelectQuery { series: "test_series", fields: vec!["field1", "field2"], start: None, end: None });
+        let r = s.read(SelectQuery {
+            series: "test_series",
+            fields: vec![FieldSelection { name: "field1", aggregator: Aggregation::None }],
+            start: None,
+            end: None,
+        });
         dbg!(r.rows.len());
 
         dbg!(&s.field_storages.get("field2").unwrap());
-        let r = s.read(SelectQuery { series: "test_series", fields: vec!["field1", "field2"], start: None, end: None });
+        let r = s.read(SelectQuery {
+            series: "test_series",
+            fields: vec![FieldSelection { name: "field2", aggregator: Aggregation::None }],
+            start: None,
+            end: None,
+        });
         dbg!(r.rows.len());
     }
 

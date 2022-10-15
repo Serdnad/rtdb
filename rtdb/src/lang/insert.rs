@@ -45,7 +45,7 @@ fn parse_fields<'a>(s: &'a [u8], index: &'a mut usize, entry: &mut SeriesEntry) 
             break;
         }
 
-        entry.fields.push(from_utf8(field).unwrap().to_owned());
+        entry.fields.push(field.to_owned());
 
         advance_whitespace(s, index);
         parse_ascii("=", s, index);
@@ -74,7 +74,7 @@ pub fn parse_insert(raw_query: &mut str) -> Insertion {
     advance_whitespace(input, &mut index);
 
     let (_, series) = parse_identifier(input, &mut index);
-    let series = from_utf8(series).unwrap().to_owned();
+    let series = series.to_owned();
     advance_whitespace(input, &mut index);
     parse_fields(input, &mut index, &mut entry);
     advance_whitespace(input, &mut index);
@@ -96,7 +96,6 @@ pub fn parse_insert(raw_query: &mut str) -> Insertion {
 mod tests {
     use crate::DataValue;
     use crate::lang::insert::{parse_fields, parse_insert};
-    use crate::lang::util::parse_identifier;
     use crate::storage::series::SeriesEntry;
 
     #[test]
@@ -139,35 +138,5 @@ mod tests {
         assert_eq!(entry.fields, vec![String::from("field1"), String::from("field2")]);
         assert_eq!(entry.values, vec![DataValue::from(1.0), DataValue::from(true)]);
         assert_eq!(entry.time, 0);
-    }
-
-    #[test]
-    fn parses_identifier() {
-        let mut index = 0;
-
-        let (parsed, ident) = parse_identifier(b"test_series,value1=1", &mut index);
-        assert_eq!(parsed, true);
-        assert_eq!(ident, b"test_series");
-        assert_eq!(index, 12);
-
-        let (parsed, ident) = parse_identifier(b"test_series,value1=1", &mut index);
-        assert_eq!(parsed, true);
-        assert_eq!(ident, b"value1");
-        assert_eq!(index, 19);
-
-        let (parsed, _ident) = parse_identifier(b"test_series,value1=1 12345", &mut index);
-        assert_eq!(parsed, false);
-        assert_eq!(index, 19);
-
-        let mut index = 0;
-        let (parsed, ident) = parse_identifier(b"1identifiers_cannot_start_with_number", &mut index);
-        assert_eq!(parsed, false);
-        assert_eq!(index, 0);
-
-        let mut index = 0;
-        let (parsed, ident) = parse_identifier(b"name-with_ch4rs", &mut index);
-        assert_eq!(parsed, true);
-        assert_eq!(ident, b"name-with_ch4rs");
-        assert_eq!(index, 16);
     }
 }

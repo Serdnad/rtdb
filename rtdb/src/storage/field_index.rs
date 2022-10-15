@@ -13,8 +13,8 @@ use crate::storage::field::FieldEntry;
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct FieldStorageBlockSummary {
     // TODO: We should also store min, max, and mean, for faster aggregating
-    pub(crate) start_timestamp: i64,
-    pub(crate) latest_timestamp: i64,
+    pub start_timestamp: i64,
+    pub latest_timestamp: i64,
 }
 
 const SUMMARY_BLOCK_SIZE: usize = size_of::<FieldStorageBlockSummary>();

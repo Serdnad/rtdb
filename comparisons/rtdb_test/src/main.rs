@@ -6,18 +6,36 @@
 // static GLOBAL: Jemalloc = Jemalloc;
 
 
-use std::time;
+use std::thread::Thread;
+use std::{thread, time};
+use std::time::Duration;
+use postgres::NoTls;
 
 fn main() {
     let mut client = rtdb_client::Client::new("127.0.0.1:2345").unwrap();
-    // let mut client = postgres::Client::connect("host=localhost user=postgres", NoTls).unwrap();
+    // let mut client = postgres::Client::connect("host=localhost user=postgres password=letmepass", NoTls).unwrap();
 
+    // dirty concurrency performance test
+    for _ in 0..8 {
+        thread::spawn(|| {
+            let start = time::Instant::now();
+
+            let mut client = rtdb_client::Client::new("127.0.0.1:2345").unwrap();
+            rtdb_test_reads(&mut client);
+
+            let elapsed = start.elapsed();
+            println!("elapsed: {}ms", elapsed.as_millis());
+        });
+    }
+
+    thread::sleep(Duration::new(20, 0))
 
     // test_postgres_reads(&mut client);
+    // test_postgres_inserts(&mut client);
 
 
     // rtdb_test_reads(&mut client);
-    rtdb_test_inserts(&mut client);
+    // rtdb_test_inserts(&mut client);
 
     // test_postgres()
 }
@@ -26,13 +44,9 @@ fn main() {
 fn rtdb_test_reads(client: &mut rtdb_client::Client) {
     let start = time::Instant::now();
 
-    let N = 5000;
+    let N = 10;
     for _ in 0..N {
         let r = client.execute("SELECT test_series");
-        // match r {
-        //     ExecutionResult::Query(q) => { dbg!(q.count); },
-        //     ExecutionResult::Insert(_) => {}
-        // }
     }
 
     let elapsed = start.elapsed();
@@ -57,6 +71,19 @@ fn test_postgres_reads(client: &mut postgres::Client) {
     let N = 10000;
     for _ in 0..N {
         let _ = client.query("SELECT * FROM playground", &[]).unwrap();
+    }
+
+    let elapsed = start.elapsed();
+    println!("Insert {} records: {}ms", N, elapsed.as_millis());
+}
+
+
+fn test_postgres_inserts(client: &mut postgres::Client) {
+    let start = time::Instant::now();
+
+    let N = 1000001;
+    for _ in 0..N {
+        let _ = client.query("INSERT INTO playground (field1, field2) VALUES (123.0, -321.0)", &[]).unwrap();
     }
 
     let elapsed = start.elapsed();

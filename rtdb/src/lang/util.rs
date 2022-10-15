@@ -1,4 +1,4 @@
-use std::str::from_utf8;
+use std::str::{from_utf8, from_utf8_unchecked};
 
 #[inline]
 pub fn advance_whitespace(s: &[u8], index: &mut usize) {
@@ -23,19 +23,19 @@ pub fn parse_ascii(tag: &'static str, s: &[u8], index: &mut usize) -> bool {
 }
 
 /// Attempts to parse an identifier. Identifiers must begin with an alphabetic character, and
-/// afterwards may only container alphanumeric characters, '-', or '_'.
+/// afterwards may only container alphanumeric characters, '-', or '_'. On success, increases index
+/// by the length of the parsed identifier.
 ///
 /// This function assumes that the input has already been converted to lowercase.
-/// This function increases index by the length of the parsed identifier.
 #[inline]
-pub fn parse_identifier<'a>(s: &'a [u8], index: &'a mut usize) -> (bool, &'a [u8]) {
+pub fn parse_identifier<'a>(s: &'a [u8], index: &mut usize) -> (bool, &'a str) {
     let mut i = 0;
 
     let first_char = s[*index];
     if first_char < 0x61 || first_char > 0x7A { // test a-z
-        return (false, b"");
+        return (false, "");
     }
-    i += 1;
+    // i += 1;
 
     for &c in &s[*index..] {
         if !c.is_ascii_alphanumeric() && c != b'_' && c != b'-' {
@@ -45,7 +45,7 @@ pub fn parse_identifier<'a>(s: &'a [u8], index: &'a mut usize) -> (bool, &'a [u8
     }
 
     *index += i;
-    (i > 0, &s[*index - i..*index - 1])
+    unsafe { (i > 0, from_utf8_unchecked(&s[*index - i..*index])) }
 }
 
 /// Attempts to parse a timestamp starting from index.
@@ -74,7 +74,7 @@ pub fn parse_timestamp(s: &[u8], index: &mut usize) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lang::util::{advance_whitespace, parse_ascii};
+    use crate::lang::util::{advance_whitespace, parse_ascii, parse_identifier};
 
     #[test]
     fn advances_whitespace() {
@@ -125,5 +125,38 @@ mod tests {
 
         assert_eq!(parse_ascii(" test ", b"a test", &mut index), false);
         assert_eq!(index, 1);
+    }
+
+    #[test]
+    fn parses_identifier() {
+        let mut index = 0;
+
+        let (parsed, ident) = parse_identifier(b"test_series,value1=1", &mut index);
+        assert_eq!(parsed, true);
+        assert_eq!(ident, "test_series");
+        assert_eq!(index, 11);
+
+        index += 1; // step past comma
+        let (parsed, ident) = parse_identifier(b"test_series,value1=1", &mut index);
+        assert_eq!(parsed, true);
+        assert_eq!(ident, "value1");
+        assert_eq!(index, 18);
+
+        let (parsed, _ident) = parse_identifier(b"test_series,value1=1 12345", &mut index);
+        assert_eq!(parsed, false);
+        assert_eq!(index, 18);
+
+        let mut index = 0;
+        let (parsed, ident) = parse_identifier(b"1identifiers_cannot_start_with_number", &mut index);
+        assert_eq!(parsed, false);
+        assert_eq!(index, 0);
+
+        let mut index = 0;
+        let (parsed, ident) = parse_identifier(b"name-with_ch4rs", &mut index);
+        assert_eq!(parsed, true);
+        assert_eq!(ident, "name-with_ch4rs");
+        assert_eq!(index, 15);
+
+        // TODO: try with non utf8
     }
 }

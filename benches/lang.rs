@@ -30,6 +30,14 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
+
+    // c.bench_function("parse select query", |b| {
+    //     b.iter(|| {
+    //         let mut query = black_box(String::from("SELECT test_series[ field1, last(field2),   min(field3)field4, field5, field6, field7  , mean(field8) ]"));
+    //         parse_select(&mut query);
+    //     })
+    // });
+
     c.bench_function("parse short insert", |b| {
         b.iter(|| {
             let mut query = String::from("INSERT test_series,field1=1.0");

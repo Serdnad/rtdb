@@ -2,6 +2,7 @@ extern crate core;
 
 use std::fmt::{Display, Formatter};
 
+
 use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize, Serialize};
 use crate::wire_protocol::FieldDescription;
@@ -31,6 +32,7 @@ pub struct DataRow {
 #[archive(compare(PartialEq))]
 #[archive_attr(derive(CheckBytes, Debug))]
 pub enum DataValue {
+    // None, // TODO
     Bool(bool),
     Float(f64),
 }
