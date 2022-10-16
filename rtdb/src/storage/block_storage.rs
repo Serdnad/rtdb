@@ -20,6 +20,7 @@ impl StorageBlock {
         match data_type {
             DataType::Float => { todo!() }
             DataType::Bool => { StorageBlock::Bool(deserialize_bools(buffer)) }
+            DataType::Timestamp => { todo!() }
         }
     }
 }

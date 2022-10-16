@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use std::fs::{create_dir, create_dir_all, OpenOptions, read, read_dir};
+use std::fs::{create_dir_all, read_dir};
 use std::io::{Read, Write};
 use std::io::ErrorKind::AlreadyExists;
 use std::str;
-use fnv::FnvHashMap;
-use crate::{DataRow, DataValue, RecordCollection};
 
+use fnv::FnvHashMap;
+
+use crate::{DataRow, DataValue, RecordCollection};
 use crate::lang::SelectQuery;
 use crate::storage::DEFAULT_DATA_DIR;
 use crate::storage::field::{FieldEntry, FieldStorage};
@@ -122,13 +122,13 @@ impl SeriesStorage<'_> {
 /// Merge "columns" of fields into a single vector of records, sorting and matching entries by
 /// their timestamp.
 pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> RecordCollection {
-    let field_count = fields.len();
-
     // TODO: I don't this check does exactly what we want to do, but at some point we have to guard
     //  against empty results
     if entries.iter().any(|col| col.is_empty()) {
         return RecordCollection { fields: vec![], rows: vec![] };
     }
+
+    let field_count = fields.len();
 
     let max_min_rows = match entries.iter().map(|f| f.len()).min() {
         None => return RecordCollection { fields: vec![], rows: vec![] },
@@ -156,7 +156,7 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
             let entry = next_elems[i];
 
             if entry.time == earliest {
-                elems.push(Some(entry.value));
+                elems.push(entry.value);
                 indices[i] += 1;
 
                 if indices[i] == entries[i].len() {
@@ -171,7 +171,7 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
                     next_elems[i] = &entries[i][indices[i]];
                 }
             } else {
-                elems.push(None);
+                elems.push(DataValue::None);
             }
         }
 
@@ -183,6 +183,8 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
     let names: Vec<_> = fields.iter().map(|&s| s.to_owned()).collect();
     let fields = entries.iter().enumerate().map(|(i, field)| {
         let data_type = match field[0].value {
+            DataValue::None => DataType::Bool, // TODO: this is wrong
+            DataValue::Timestamp(_) => DataType::Timestamp,
             DataValue::Bool(_) => DataType::Bool,
             DataValue::Float(_) => DataType::Float,
         };
@@ -196,7 +198,8 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
 
 #[cfg(test)]
 mod tests {
-    use std::{fs};
+    use std::fs;
+
     use crate::DataValue;
     use crate::lang::{Aggregation, FieldSelection, SelectQuery};
     use crate::storage::field::FieldEntry;
@@ -218,8 +221,8 @@ mod tests {
 
         let records = merge_records(&entries, &vec!["field1", "field2"]);
         assert_eq!(records.rows, vec![
-            DataRow { time: 1, elements: vec![Some(DataValue::from(1.0)), Some(DataValue::from(3.0))] },
-            DataRow { time: 2, elements: vec![Some(DataValue::from(2.0)), Some(DataValue::from(4.0))] },
+            DataRow { time: 1, elements: vec![DataValue::from(1.0), DataValue::from(3.0)] },
+            DataRow { time: 2, elements: vec![DataValue::from(2.0), DataValue::from(4.0)] },
         ]);
     }
 
@@ -232,10 +235,10 @@ mod tests {
 
         let records = merge_records(&entries, &vec!["field1", "field2"]);
         assert_eq!(records.rows, vec![
-            DataRow { time: 1, elements: vec![Some(DataValue::from(1.0)), None] },
-            DataRow { time: 2, elements: vec![Some(DataValue::from(2.0)), Some(DataValue::from(3.0))] },
-            DataRow { time: 3, elements: vec![Some(DataValue::from(5.0)), None] },
-            DataRow { time: 4, elements: vec![None, Some(DataValue::from(4.0))] },
+            DataRow { time: 1, elements: vec![DataValue::from(1.0), DataValue::None] },
+            DataRow { time: 2, elements: vec![DataValue::from(2.0), DataValue::from(3.0)] },
+            DataRow { time: 3, elements: vec![DataValue::from(5.0), DataValue::None] },
+            DataRow { time: 4, elements: vec![DataValue::None, DataValue::from(4.0)] },
         ]);
     }
 
@@ -250,10 +253,10 @@ mod tests {
 
         let records = merge_records(&entries, &vec!["field1", "field2", "field3"]);
         assert_eq!(records.rows, vec![
-            DataRow { time: 1, elements: vec![Some(DataValue::from(1.0)), None, None] },
-            DataRow { time: 2, elements: vec![Some(DataValue::from(2.0)), Some(DataValue::from(3.0)), Some(DataValue::from(3.0))] },
-            DataRow { time: 3, elements: vec![Some(DataValue::from(5.0)), None, None] },
-            DataRow { time: 4, elements: vec![None, Some(DataValue::from(4.0)), Some(DataValue::from(4.0))] },
+            DataRow { time: 1, elements: vec![DataValue::from(1.0), DataValue::None, DataValue::None] },
+            DataRow { time: 2, elements: vec![DataValue::from(2.0), DataValue::from(3.0), DataValue::from(3.0)] },
+            DataRow { time: 3, elements: vec![DataValue::from(5.0), DataValue::None, DataValue::None] },
+            DataRow { time: 4, elements: vec![DataValue::None, DataValue::from(4.0), DataValue::from(4.0)] },
         ]);
     }
 

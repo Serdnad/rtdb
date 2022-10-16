@@ -24,10 +24,7 @@ pub fn to_table(data: &QueryResult) -> String {
         s.push_str(" │  ");
 
         for (i, &elem) in row.elements.iter().enumerate() {
-            let val_s = match elem {
-                None => String::from(""),
-                Some(val) => val.to_string()
-            };
+            let val_s = elem.to_string();
 
             let field = &data.records.fields[i];
             let _len = &data.records.fields[i].name.len();

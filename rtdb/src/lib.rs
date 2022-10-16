@@ -1,6 +1,6 @@
 extern crate core;
 
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, write};
 
 
 use bytecheck::CheckBytes;
@@ -22,17 +22,24 @@ pub struct RecordCollection {
     pub rows: Vec<DataRow>,
 }
 
-#[derive(Debug, serde::Serialize, PartialEq)]
+#[derive(Debug, serde::Serialize, PartialEq, Clone)]
 pub struct DataRow {
     pub time: i64,
-    pub elements: Vec<Option<DataValue>>,
+    pub elements: Vec<DataValue>,
+}
+
+impl DataRow {
+    pub fn with_capacity(num_elems: usize) -> DataRow {
+        DataRow{ time: 0, elements: Vec::with_capacity(num_elems) }
+    }
 }
 
 #[derive(Archive, Copy, Clone, Deserialize, Serialize, Debug, PartialEq, serde::Serialize)]
 #[archive(compare(PartialEq))]
 #[archive_attr(derive(CheckBytes, Debug))]
 pub enum DataValue {
-    // None, // TODO
+    None,
+    Timestamp(i64),
     Bool(bool),
     Float(f64),
 }
@@ -53,6 +60,8 @@ impl DataValue {
     #[inline]
     pub fn to_be_bytes(self) -> Vec<u8> {
         match self {
+            DataValue::None => vec![],
+            DataValue::Timestamp(t) => t.to_be_bytes().to_vec(),
             DataValue::Bool(b) => vec![b as u8],
             DataValue::Float(f) => f.to_be_bytes().to_vec()
         }
@@ -71,6 +80,8 @@ impl PartialEq<f64> for DataValue {
 impl std::fmt::Display for DataValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            DataValue::None => write!(f, "NONE"),
+            DataValue::Timestamp(t) => write!(f, "{}", t), // TODO: could format more nicely?
             DataValue::Bool(bool) => write!(f, "{}", bool),
             DataValue::Float(float) => write!(f, "{}", float)
         }

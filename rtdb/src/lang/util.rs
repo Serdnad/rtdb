@@ -1,4 +1,5 @@
 use std::str::{from_utf8, from_utf8_unchecked};
+use crate::util::new_timestamp;
 
 #[inline]
 pub fn advance_whitespace(s: &[u8], index: &mut usize) {
@@ -52,9 +53,16 @@ pub fn parse_identifier<'a>(s: &'a [u8], index: &mut usize) -> (bool, &'a str) {
 ///
 /// Currently accepts the following formats:
 /// - nanoseconds from Unix epoch
+/// - now()
 /// - TODO: support additional formats
 #[inline]
 pub fn parse_timestamp(s: &[u8], index: &mut usize) -> Option<i64> {
+    // now()
+    if parse_ascii("now()", s, index) {
+        return Some(new_timestamp());
+    }
+
+    // all others
     let mut i = 0;
     for char in &s[*index..] {
         match char.is_ascii_digit() {
@@ -74,7 +82,8 @@ pub fn parse_timestamp(s: &[u8], index: &mut usize) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lang::util::{advance_whitespace, parse_ascii, parse_identifier};
+    use crate::lang::util::{advance_whitespace, parse_ascii, parse_identifier, parse_timestamp};
+    use crate::util::new_timestamp;
 
     #[test]
     fn advances_whitespace() {
@@ -116,15 +125,13 @@ mod tests {
     #[test]
     fn parses_timestamps() {
         let mut index = 0;
+        assert_eq!(parse_timestamp(b"", &mut index), None);
 
-        assert_eq!(parse_ascii("test", b"a test", &mut index), false);
-        assert_eq!(index, 0);
+        let mut index = 0;
+        assert_eq!(parse_timestamp(b"1665877689000000", &mut index).unwrap(), 1665877689000000i64);
 
-        assert_eq!(parse_ascii("a", b"a test", &mut index), true);
-        assert_eq!(index, 1);
-
-        assert_eq!(parse_ascii(" test ", b"a test", &mut index), false);
-        assert_eq!(index, 1);
+        let mut index = 0;
+        assert!(parse_timestamp(b"now()", &mut index).unwrap() > new_timestamp() - 1_000_000);
     }
 
     #[test]

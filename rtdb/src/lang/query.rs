@@ -30,7 +30,7 @@ pub fn parse_select(raw_query: &mut str) -> SelectQuery {
     }
 
     advance_whitespace(input, &mut index);
-    parse_fields2(input, &mut index, &mut query.fields);
+    parse_fields(input, &mut index, &mut query.fields);
     advance_whitespace(input, &mut index);
     parse_time_range(input, &mut index, &mut query);
 
@@ -43,56 +43,7 @@ pub fn parse_select(raw_query: &mut str) -> SelectQuery {
     query
 }
 
-// TODO: move this somewhere else
-
 fn parse_fields<'a>(s: &'a [u8], index: &mut usize, fields: &mut Vec<FieldSelection<'a>>) {
-    let mut i = *index;
-
-    if s[i] == b'[' {
-        i += 1;
-        advance_whitespace(s, &mut i);
-
-        let mut start_index = i;
-        while i < s.len() {
-            match s[i] {
-                b',' => {
-                    let field = from_utf8(&s[start_index..i]).unwrap();
-                    fields.push(FieldSelection { name: field, aggregator: Aggregation::None });
-
-                    i += 1;
-                    advance_whitespace(s, &mut i);
-                    start_index = i;
-                }
-                b']' => {
-                    let field = from_utf8(&s[start_index..i]).unwrap();
-                    fields.push(FieldSelection { name: field, aggregator: Aggregation::None });
-                    i += 1;
-                    break;
-                }
-                b' ' => { // handle trailing whitespace
-                    let field = from_utf8(&s[start_index..i]).unwrap();
-                    fields.push(FieldSelection { name: field, aggregator: Aggregation::None });
-
-                    advance_whitespace(s, &mut i);
-
-                    if s[i] == b',' {
-                        i += 1;
-                        advance_whitespace(s, &mut i);
-                    } else if s[i] == b']' {
-                        break;
-                    }
-
-                    start_index = i;
-                }
-                _ => i += 1,
-            }
-        }
-    }
-
-    *index = i;
-}
-
-fn parse_fields2<'a>(s: &'a [u8], index: &mut usize, fields: &mut Vec<FieldSelection<'a>>) {
     if !parse_ascii("[", s, index) {
         return;
     }

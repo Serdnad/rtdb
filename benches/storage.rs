@@ -160,18 +160,6 @@ fn criterion_benchmark(c: &mut Criterion) {
     //     })
     // });
 
-    // c.bench_function("merge 4 aligned records", |b| {
-    //     b.iter(|| {
-    //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
-    //         let b: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-    //         let c: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-    //         let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
-    //         let entries = vec![a, b, c, d];
-    //
-    //         let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
-    //     })
-    // });
-
     // c.bench_function("merge2 4 aligned records", |b| {
     //     b.iter(|| {
     //         let a: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 0.0 }).collect();
@@ -180,7 +168,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     //         let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: 1.0 }).collect();
     //         let entries = vec![a, b, c, d];
     //
-    //         let records = merge_records2(entries, vec!["field1", "field2", "field3", "field4"]);
+    //         let records = merge_records(entries, vec!["field1", "field2", "field3", "field4"]);
     //     })
     // });
 

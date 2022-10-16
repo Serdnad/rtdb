@@ -131,16 +131,8 @@ fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow, fields: &Vec<FieldDescrip
     buffer.extend(time.to_be_bytes());
 
     for (i, entry) in row.elements.iter().enumerate() {
-        let b = match entry {
-            None => match fields[i].data_type {
-                DataType::Float => DataValue::from(f64::NAN), // TODO: actual null value (maybe specialization of NaN
-                DataType::Bool => DataValue::from(false), // tODO
-            },
-            Some(v) => *v
-        };
-
-        buffer.extend((&entry).unwrap_or(b).to_be_bytes()); // TODO: handle None properly
-    }
+        buffer.extend((&entry.to_be_bytes())); // TODO: handle None properly
+    };
 }
 
 #[inline]
@@ -150,8 +142,10 @@ fn parse_data_row(buffer: &mut ByteReader, fields: &Vec<FieldDescription>) -> Da
     let time = buffer.read_i64::<BigEndian>().unwrap();
     for field in fields {
         let value = match field.data_type {
-            DataType::Float => Some(DataValue::from(buffer.read_f64::<BigEndian>().unwrap())),
-            DataType::Bool => Some(DataValue::Bool(buffer.read_u8().unwrap() == 1)),
+            // TODO: handle "null" values
+            DataType::Timestamp => DataValue::Timestamp(buffer.read_i64::<BigEndian>().unwrap()),
+            DataType::Float => DataValue::from(buffer.read_f64::<BigEndian>().unwrap()),
+            DataType::Bool => DataValue::Bool(buffer.read_u8().unwrap() == 1),
         };
         values.push(value);
     }
@@ -201,6 +195,7 @@ pub fn parse_query_result(mut buffer: &mut ByteReader) -> QueryResult {
 fn estimate_mem(fields: &Vec<FieldDescription>, row_count: usize) -> usize {
     let mem_estimate = fields.iter().map(|field| {
         let data_size = match field.data_type {
+            DataType::Timestamp => 8,
             DataType::Float => 8,
             DataType::Bool => 1,
         } as usize;
@@ -236,7 +231,7 @@ mod tests {
                          FieldDescription { name: String::from("field2"), data_type: DataType::Float }],
             rows: vec![DataRow {
                 time: 12345678912345,
-                elements: vec![Some(DataValue::from(123.0)), Some(DataValue::from(123.01))],
+                elements: vec![DataValue::from(123.0), DataValue::from(123.01)],
             }],
         };
         let result = QueryResult {
@@ -246,7 +241,7 @@ mod tests {
                              FieldDescription { name: String::from("field2"), data_type: DataType::Float }],
                 rows: vec![DataRow {
                     time: 12345678912345,
-                    elements: vec![Some(DataValue::from(123.0)), Some(DataValue::from(123.01))],
+                    elements: vec![DataValue::from(123.0), DataValue::from(123.01)],
                 }],
             },
         };
@@ -270,6 +265,13 @@ mod tests {
         assert_eq!(buffer[0], 0);
         assert_eq!(buffer[2], 6);
         assert_eq!(from_utf8(&buffer[3..]).unwrap(), "field1");
+
+
+        let mut buffer = vec![];
+        let _col_summary = write_field_description(&mut buffer, "field2", DataType::Float);
+        assert_eq!(buffer[0], 0);
+        assert_eq!(buffer[2], 6);
+        assert_eq!(from_utf8(&buffer[3..]).unwrap(), "field2");
     }
 
     #[test]
@@ -313,7 +315,7 @@ mod tests {
 
     #[test]
     fn gen_data_row() {
-        let row = DataRow { time: 12345678912345, elements: vec![Some(DataValue::from(123.0)), Some(DataValue::from(123.01))] };
+        let row = DataRow { time: 12345678912345, elements: vec![DataValue::from(123.0), DataValue::from(123.01)] };
 
         let mut buffer = vec![];
         write_data_row(&mut buffer, &row, &vec![]);
@@ -326,7 +328,7 @@ mod tests {
 
     #[test]
     fn parses_data_row() {
-        let row = DataRow { time: 12345678912345, elements: vec![Some(DataValue::from(123.0)), Some(DataValue::from(123.01))] };
+        let row = DataRow { time: 12345678912345, elements: vec![DataValue::from(123.0), DataValue::from(123.01)] };
 
         let mut buffer = vec![];
         write_data_row(&mut buffer, &row, &vec![]);

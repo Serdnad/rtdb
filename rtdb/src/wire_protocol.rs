@@ -2,6 +2,7 @@
 //  the input is not perfect.
 
 use byteorder::ReadBytesExt;
+
 use crate::execution::ExecutionResult;
 use crate::wire_protocol::insert::parse_insert_result;
 use crate::wire_protocol::query::{ByteReader, parse_query_result};
@@ -9,12 +10,12 @@ use crate::wire_protocol::query::{ByteReader, parse_query_result};
 pub mod query;
 pub mod insert;
 
-
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 #[repr(u8)]
 pub enum DataType {
     Float = 0,
     Bool = 1,
+    Timestamp = 2,
 }
 
 impl std::convert::TryFrom<u8> for DataType {
@@ -36,12 +37,6 @@ impl std::convert::TryFrom<u8> for DataType {
 pub struct FieldDescription {
     pub name: String,
     pub data_type: DataType,
-}
-
-impl FieldDescription {
-    // pub fn new(name: &str, data_type: &) {
-    //
-    // }
 }
 
 pub fn parse_result(buffer: &mut Vec<u8>) -> ExecutionResult {
