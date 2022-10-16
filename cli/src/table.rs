@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use rtdb_client::{DataType, QueryResult};
+use rtdb_client::{DataType, QueryResult, DataValue, ClientQueryResult};
 
-pub fn to_table(data: &QueryResult) -> String {
+pub fn to_table(data: &ClientQueryResult) -> String {
     let mut s = String::from("│ ");
     s.push_str("timestamp                │ ");
     s.push_str(&data.records.fields.iter().map(|f| f.name.to_owned()).collect::<Vec<_>>().join("   │ "));
@@ -11,6 +11,8 @@ pub fn to_table(data: &QueryResult) -> String {
     s.push_str(&format!("├{}┤\n│", &"-".repeat(header_len)));
     // s.push_str(&"-".repeat(header_len));
     // s.push_str(&format!("{:_^8}"));
+
+    let field_count = data.records.fields.len();
 
     for (i, row) in data.records.rows.iter().enumerate() {
         if i > 20 {
@@ -29,6 +31,7 @@ pub fn to_table(data: &QueryResult) -> String {
             let field = &data.records.fields[i];
             let _len = &data.records.fields[i].name.len();
             match field.data_type {
+                DataType::Timestamp => s.push_str(&format!("{: >7} │", val_s)),
                 DataType::Float => s.push_str(&format!("{: >7} │", val_s)),
                 DataType::Bool => s.push_str(&format!("{: <7} │", val_s)),
             };

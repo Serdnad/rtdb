@@ -19,8 +19,34 @@ pub mod users;
 #[derive(Debug, serde::Serialize, PartialEq)]
 pub struct RecordCollection {
     pub fields: Vec<FieldDescription>,
+
+    // elements is effectively a 2D matrix of entries, stored as a 1D vector for performance reasons.
+    // If a record collection is of N rows and M fields (not including timestamp), then elements will have length
+    // N * (N + 1)
+    pub elements: Vec<DataValue>,
+}
+
+impl RecordCollection {
+    #[inline(always)]
+    pub fn empty() -> RecordCollection {
+        RecordCollection{ fields: vec![], elements: vec![] }
+    }
+
+    /// Return the number of rows in this record collection.
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.elements.len() / (self.fields.len() + 1)
+    }
+}
+
+// TODO: move to client side and rename
+#[derive(Debug, serde::Serialize, PartialEq)]
+pub struct ClientRecordCollection {
+    pub fields: Vec<FieldDescription>,
+
     pub rows: Vec<DataRow>,
 }
+
 
 #[derive(Debug, serde::Serialize, PartialEq, Clone)]
 pub struct DataRow {

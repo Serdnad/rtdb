@@ -4,7 +4,7 @@ use rustyline::error::ReadlineError::{Eof, Interrupted};
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
 
-use rtdb_client::{Client, ExecutionResult};
+use rtdb_client::{Client, ClientExecutionResult, ExecutionResult};
 use crate::table::to_table;
 
 mod table;
@@ -33,10 +33,10 @@ async fn main() {
                 let elapsed = start.elapsed();
 
                 match result {
-                    ExecutionResult::Query(data) => {
+                    ClientExecutionResult::Query(data) => {
                         println!("{}", to_table(&data));
                     }
-                    ExecutionResult::Insert(_) => {}
+                    ClientExecutionResult::Insert(_) => {}
                 }
                 println!("{}us", elapsed.as_micros());
             }

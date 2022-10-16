@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::lang::{Action, SelectQuery};
 use crate::lang::insert::Insertion;
-use crate::RecordCollection;
+use crate::{ClientRecordCollection, RecordCollection};
 use crate::storage::series::SeriesStorage;
 
 pub struct ExecutionEngine<'a> {
@@ -24,6 +24,14 @@ pub struct QueryResult {
     pub count: usize,
     // pub fields: Vec<String>,// already in record collection
     pub records: RecordCollection,
+}
+
+
+/// TODO: move and rename
+#[derive(Debug, Serialize)]
+pub struct ClientQueryResult {
+    pub count: usize,
+    pub records: ClientRecordCollection,
 }
 
 #[derive(Serialize)]
@@ -51,7 +59,7 @@ impl ExecutionEngine<'_> {
         match storages.get(&query.series.to_owned()) {
             Some(storage) => {
                 let records = storage.read(query);
-                let count = records.rows.len();
+                let count = records.len();
                 ExecutionResult::Query(QueryResult { records, count })
             }
             None => {
@@ -59,7 +67,7 @@ impl ExecutionEngine<'_> {
 
                 let storage = SeriesStorage::load("test_series"); // TODO: BAD
                 let records = storage.read(query);
-                let count = &records.rows.len();
+                let count = &records.len();
                 let result = ExecutionResult::Query(QueryResult { records, count: *count });
 
                 storages.insert(series_name, storage); // TODO: bad

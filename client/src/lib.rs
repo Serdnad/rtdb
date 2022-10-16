@@ -2,10 +2,12 @@ use std::io::{Error, Read, Write};
 use std::net::TcpStream;
 
 use byteorder::{BigEndian, ReadBytesExt};
+pub use rtdb::DataValue;
 
 pub use rtdb::execution::{ExecutionResult, InsertionResult, QueryResult};
+pub use rtdb::execution::ClientQueryResult;
 pub use rtdb::wire_protocol::DataType;
-use rtdb::wire_protocol::parse_result;
+pub use rtdb::wire_protocol::{ClientExecutionResult, parse_result};
 
 pub struct Client {
     stream: TcpStream,
@@ -24,7 +26,7 @@ impl Client {
         }
     }
 
-    pub fn execute(&mut self, query: &str) -> ExecutionResult {
+    pub fn execute(&mut self, query: &str) -> ClientExecutionResult {
         let len = query.len() as u16;
         let mut buffer = Vec::with_capacity((2 + len) as usize);
         buffer.write_all(&len.to_be_bytes());
@@ -39,7 +41,7 @@ impl Client {
 
 // TODO: generalize this, and we can probably optimize it a fair bit too, but that'll involve
 //  tweaking the way we serialize responses probably.
-fn read_from_stream(stream: &mut TcpStream) -> ExecutionResult {
+fn read_from_stream(stream: &mut TcpStream) -> ClientExecutionResult {
     let buf_len = stream.read_u64::<BigEndian>().unwrap();
     let mut response = vec![0; buf_len as usize];
     stream.read_exact(&mut response).unwrap();

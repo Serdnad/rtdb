@@ -3,7 +3,7 @@
 
 use byteorder::ReadBytesExt;
 
-use crate::execution::ExecutionResult;
+use crate::execution::{ClientQueryResult, InsertionResult};
 use crate::wire_protocol::insert::parse_insert_result;
 use crate::wire_protocol::query::{ByteReader, parse_query_result};
 
@@ -39,16 +39,23 @@ pub struct FieldDescription {
     pub data_type: DataType,
 }
 
-pub fn parse_result(buffer: &mut Vec<u8>) -> ExecutionResult {
+// TODO: move to client library and rename
+pub enum ClientExecutionResult {
+    Query(ClientQueryResult),
+    Insert(InsertionResult),
+}
+
+// TODO: move to client library
+pub fn parse_result(buffer: &mut Vec<u8>) -> ClientExecutionResult {
     let mut cursor = ByteReader::new(&buffer);
     match cursor.read_u8().unwrap() {
         1 => {
             let result = parse_query_result(&mut cursor);
-            ExecutionResult::Query(result)
+            ClientExecutionResult::Query(result)
         }
         2 => {
             let result = parse_insert_result(&mut cursor);
-            ExecutionResult::Insert(result)
+            ClientExecutionResult::Insert(result)
         }
         _ => panic!("Not supported")
     }

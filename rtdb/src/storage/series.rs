@@ -77,7 +77,7 @@ impl SeriesStorage<'_> {
 
     pub fn read(&self, query: SelectQuery) -> RecordCollection {
         if Some(query.end) < Some(query.start) {
-            return RecordCollection { fields: vec![], rows: vec![] };
+            return RecordCollection::empty();
         }
 
         let fields: Vec<&str> = match query.fields.is_empty() {
@@ -125,16 +125,18 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
     // TODO: I don't this check does exactly what we want to do, but at some point we have to guard
     //  against empty results
     if entries.iter().any(|col| col.is_empty()) {
-        return RecordCollection { fields: vec![], rows: vec![] };
+        return RecordCollection::empty();
     }
 
     let field_count = fields.len();
 
     let max_min_rows = match entries.iter().map(|f| f.len()).min() {
-        None => return RecordCollection { fields: vec![], rows: vec![] },
+        None => return RecordCollection::empty(),
         Some(min) => min,
     };
-    let mut rows = Vec::with_capacity(max_min_rows);
+
+    // allocate a vector of (f + 1) * N elements, where f is field count and N is estimated row count
+    let mut elements = Vec::with_capacity((field_count + 1) * max_min_rows);
 
     let mut next_elems: Vec<_> = entries.iter().map(|f| &f[0]).collect();
     let mut indices = vec![0; entries.len()];
@@ -150,19 +152,18 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
             }
         }
 
-        // construct row, picking elements that match earliest, and filling None otherwise
-        let mut elems = Vec::with_capacity(field_count);
+        elements.push(DataValue::Timestamp(earliest));
+
         for i in 0..field_count {
             let entry = next_elems[i];
 
             if entry.time == earliest {
-                elems.push(entry.value);
+                elements.push(entry.value);
                 indices[i] += 1;
 
                 if indices[i] == entries[i].len() {
                     exhausted_count += 1;
                     if exhausted_count == field_count {
-                        rows.push(DataRow { time: earliest, elements: elems });
                         break 'outer;
                     }
 
@@ -171,11 +172,9 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
                     next_elems[i] = &entries[i][indices[i]];
                 }
             } else {
-                elems.push(DataValue::None);
+                elements.push(DataValue::None);
             }
         }
-
-        rows.push(DataRow { time: earliest, elements: elems });
     }
 
     // TODO: instead, we should be passing this in from above. the series should know what type each
@@ -192,7 +191,7 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, fields: &Vec<&str>) -> Reco
         FieldDescription { name: names[i].to_owned(), data_type }
     }).collect();
 
-    RecordCollection { fields, rows }
+    RecordCollection { fields, elements }
 }
 
 
@@ -213,17 +212,16 @@ mod tests {
 
     // TODO: update these tests when we're including timestamps
     #[test]
-    fn merge() {
+    fn merge_aligned() {
         let entries = vec![
             vec![FieldEntry { value: DataValue::from(1.0), time: 1 }, FieldEntry { value: DataValue::from(2.0), time: 2 }],
             vec![FieldEntry { value: DataValue::from(3.0), time: 1 }, FieldEntry { value: DataValue::from(4.0), time: 2 }],
         ];
 
         let records = merge_records(&entries, &vec!["field1", "field2"]);
-        assert_eq!(records.rows, vec![
-            DataRow { time: 1, elements: vec![DataValue::from(1.0), DataValue::from(3.0)] },
-            DataRow { time: 2, elements: vec![DataValue::from(2.0), DataValue::from(4.0)] },
-        ]);
+        assert_eq!(records.elements,
+                   vec![DataValue::Timestamp(1), DataValue::from(1.0), DataValue::from(3.0),
+                        DataValue::Timestamp(2), DataValue::from(2.0), DataValue::from(4.0)]);
     }
 
     #[test]
@@ -234,11 +232,11 @@ mod tests {
         ];
 
         let records = merge_records(&entries, &vec!["field1", "field2"]);
-        assert_eq!(records.rows, vec![
-            DataRow { time: 1, elements: vec![DataValue::from(1.0), DataValue::None] },
-            DataRow { time: 2, elements: vec![DataValue::from(2.0), DataValue::from(3.0)] },
-            DataRow { time: 3, elements: vec![DataValue::from(5.0), DataValue::None] },
-            DataRow { time: 4, elements: vec![DataValue::None, DataValue::from(4.0)] },
+        assert_eq!(records.elements, vec![
+            DataValue::Timestamp(1), DataValue::from(1.0), DataValue::None,
+            DataValue::Timestamp(2), DataValue::from(2.0), DataValue::from(3.0),
+            DataValue::Timestamp(3), DataValue::from(5.0), DataValue::None,
+            DataValue::Timestamp(4), DataValue::None, DataValue::from(4.0),
         ]);
     }
 
@@ -252,11 +250,11 @@ mod tests {
         ];
 
         let records = merge_records(&entries, &vec!["field1", "field2", "field3"]);
-        assert_eq!(records.rows, vec![
-            DataRow { time: 1, elements: vec![DataValue::from(1.0), DataValue::None, DataValue::None] },
-            DataRow { time: 2, elements: vec![DataValue::from(2.0), DataValue::from(3.0), DataValue::from(3.0)] },
-            DataRow { time: 3, elements: vec![DataValue::from(5.0), DataValue::None, DataValue::None] },
-            DataRow { time: 4, elements: vec![DataValue::None, DataValue::from(4.0), DataValue::from(4.0)] },
+        assert_eq!(records.elements, vec![
+            DataValue::Timestamp(1), DataValue::from(1.0), DataValue::None, DataValue::None,
+            DataValue::Timestamp(2), DataValue::from(2.0), DataValue::from(3.0), DataValue::from(3.0),
+            DataValue::Timestamp(3), DataValue::from(5.0), DataValue::None, DataValue::None,
+            DataValue::Timestamp(4), DataValue::None, DataValue::from(4.0), DataValue::from(4.0),
         ]);
     }
 
@@ -303,7 +301,7 @@ mod tests {
             start: None,
             end: None,
         });
-        dbg!(r.rows.len());
+        // dbg!(r.rows.len());
 
         dbg!(&s.field_storages.get("field2").unwrap());
         let r = s.read(SelectQuery {
@@ -312,52 +310,52 @@ mod tests {
             start: None,
             end: None,
         });
-        dbg!(r.rows.len());
+        // dbg!(r.rows.len());
     }
 
 
-    // TODO: we can delete these after we've updated merge tests
-    // #[test]
-    // fn merge_aligned() {
-    //     let entries = vec![
-    //         vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 2 }],
-    //         vec![FieldEntry { value: 3.0, time: 1 }, FieldEntry { value: 4.0, time: 2 }],
-    //     ];
-    //
-    //     let records = merge_records(entries, vec!["field1", "field2"]);
-    //     assert_eq!(records.len(), 2);
-    //     assert_eq!(records[0], SeriesEntry { values: HashMap::from([(String::from("field1"), 1.0), (String::from("field2"), 3.0)]), time: 1 });
-    //     assert_eq!(records[1], SeriesEntry { values: HashMap::from([(String::from("field1"), 2.0), (String::from("field2"), 4.0)]), time: 2 });
-    // }
-    //
-    // #[test]
-    // fn merge_alternating() {
-    //     let entries = vec![
-    //         vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 3 }],
-    //         vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
-    //     ];
-    //
-    //     let records = merge_records(entries, vec!["field1", "field2"]);
-    //     assert_eq!(records.len(), 4);
-    //     assert_eq!(records[0], SeriesEntry { values: HashMap::from([(String::from("field1"), 1.0)]), time: 1 });
-    //     assert_eq!(records[1], SeriesEntry { values: HashMap::from([(String::from("field2"), 3.0)]), time: 2 });
-    //     assert_eq!(records[2], SeriesEntry { values: HashMap::from([(String::from("field1"), 2.0)]), time: 3 });
-    //     assert_eq!(records[3], SeriesEntry { values: HashMap::from([(String::from("field2"), 4.0)]), time: 4 });
-    // }
-    //
-    // #[test]
-    // fn merge_mixed() {
-    //     let entries = vec![
-    //         vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 3 }, FieldEntry { value: 3.0, time: 4 }, FieldEntry { value: 4.0, time: 5 }],
-    //         vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
-    //     ];
-    //
-    //     let records = merge_records(entries, vec!["field1", "field2"]);
-    //     assert_eq!(records.len(), 5);
-    //     assert_eq!(records[0], SeriesEntry { values: HashMap::from([(String::from("field1"), 1.0)]), time: 1 });
-    //     assert_eq!(records[1], SeriesEntry { values: HashMap::from([(String::from("field2"), 3.0)]), time: 2 });
-    //     assert_eq!(records[2], SeriesEntry { values: HashMap::from([(String::from("field1"), 2.0)]), time: 3 });
-    //     assert_eq!(records[3], SeriesEntry { values: HashMap::from([(String::from("field1"), 3.0), (String::from("field2"), 4.0)]), time: 4 });
-    //     assert_eq!(records[4], SeriesEntry { values: HashMap::from([(String::from("field1"), 4.0)]), time: 5 });
-    // }
+// TODO: we can delete these after we've updated merge tests
+// #[test]
+// fn merge_aligned() {
+//     let entries = vec![
+//         vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 2 }],
+//         vec![FieldEntry { value: 3.0, time: 1 }, FieldEntry { value: 4.0, time: 2 }],
+//     ];
+//
+//     let records = merge_records(entries, vec!["field1", "field2"]);
+//     assert_eq!(records.len(), 2);
+//     assert_eq!(records[0], SeriesEntry { values: HashMap::from([(String::from("field1"), 1.0), (String::from("field2"), 3.0)]), time: 1 });
+//     assert_eq!(records[1], SeriesEntry { values: HashMap::from([(String::from("field1"), 2.0), (String::from("field2"), 4.0)]), time: 2 });
+// }
+//
+// #[test]
+// fn merge_alternating() {
+//     let entries = vec![
+//         vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 3 }],
+//         vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
+//     ];
+//
+//     let records = merge_records(entries, vec!["field1", "field2"]);
+//     assert_eq!(records.len(), 4);
+//     assert_eq!(records[0], SeriesEntry { values: HashMap::from([(String::from("field1"), 1.0)]), time: 1 });
+//     assert_eq!(records[1], SeriesEntry { values: HashMap::from([(String::from("field2"), 3.0)]), time: 2 });
+//     assert_eq!(records[2], SeriesEntry { values: HashMap::from([(String::from("field1"), 2.0)]), time: 3 });
+//     assert_eq!(records[3], SeriesEntry { values: HashMap::from([(String::from("field2"), 4.0)]), time: 4 });
+// }
+//
+// #[test]
+// fn merge_mixed() {
+//     let entries = vec![
+//         vec![FieldEntry { value: 1.0, time: 1 }, FieldEntry { value: 2.0, time: 3 }, FieldEntry { value: 3.0, time: 4 }, FieldEntry { value: 4.0, time: 5 }],
+//         vec![FieldEntry { value: 3.0, time: 2 }, FieldEntry { value: 4.0, time: 4 }],
+//     ];
+//
+//     let records = merge_records(entries, vec!["field1", "field2"]);
+//     assert_eq!(records.len(), 5);
+//     assert_eq!(records[0], SeriesEntry { values: HashMap::from([(String::from("field1"), 1.0)]), time: 1 });
+//     assert_eq!(records[1], SeriesEntry { values: HashMap::from([(String::from("field2"), 3.0)]), time: 2 });
+//     assert_eq!(records[2], SeriesEntry { values: HashMap::from([(String::from("field1"), 2.0)]), time: 3 });
+//     assert_eq!(records[3], SeriesEntry { values: HashMap::from([(String::from("field1"), 3.0), (String::from("field2"), 4.0)]), time: 4 });
+//     assert_eq!(records[4], SeriesEntry { values: HashMap::from([(String::from("field1"), 4.0)]), time: 5 });
+// }
 }

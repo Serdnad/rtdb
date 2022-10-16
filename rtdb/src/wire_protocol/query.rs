@@ -5,8 +5,8 @@ use std::str::from_utf8;
 use byteorder::{BigEndian, ReadBytesExt};
 use tokio::time;
 
-use crate::{DataRow, DataValue, RecordCollection};
-use crate::execution::{ExecutionResult, QueryResult};
+use crate::{ClientRecordCollection, DataRow, DataValue, RecordCollection};
+use crate::execution::{ClientQueryResult, ExecutionResult, QueryResult};
 use crate::wire_protocol::{DataType, FieldDescription};
 use crate::wire_protocol::insert::build_insert_result;
 
@@ -161,28 +161,25 @@ pub fn build_query_result(result: &QueryResult) -> Vec<u8> {
     write_field_descriptions(&mut buffer, &fields);
 
     buffer.extend((result.count as u32).to_be_bytes());
-    for row in &result.records.rows {
-        write_data_row(&mut buffer, row, &fields);
+    for elem in &result.records.elements {
+        buffer.extend((&elem.to_be_bytes())); // TODO: handle None properly
     }
     buffer
 }
 
-pub fn parse_query_result(mut buffer: &mut ByteReader) -> QueryResult {
+pub fn parse_query_result(mut buffer: &mut ByteReader) -> ClientQueryResult {
     let fields = parse_field_descriptions(&mut buffer).unwrap();
+    let field_count = fields.len();
 
     let count = buffer.read_u32::<BigEndian>().unwrap();
-    let mut rows = Vec::with_capacity(count as usize);
+    let mut rows = Vec::with_capacity(field_count * count as usize);
     for _ in 0..count {
-        let s = time::Instant::now();
         rows.push(parse_data_row(&mut buffer, &fields));
-        let elapsed = s.elapsed();
-
-        // println!("{}ns", elapsed.as_nanos());
     }
 
-    QueryResult {
+    ClientQueryResult {
         count: count as usize,
-        records: RecordCollection {
+        records: ClientRecordCollection {
             fields,
             rows,
         },
@@ -217,32 +214,21 @@ mod tests {
 
     use byteorder::{BigEndian, ReadBytesExt};
 
-    use crate::DataValue;
+    use crate::{ClientRecordCollection, DataValue};
     use crate::execution::{ExecutionResult, QueryResult};
     use crate::{DataRow, RecordCollection};
-    use crate::wire_protocol::{DataType, FieldDescription, parse_result};
+    use crate::wire_protocol::{ClientExecutionResult, DataType, FieldDescription, parse_result};
     use crate::wire_protocol::query::{build_query_result, ByteReader, parse_data_row, parse_field_description, parse_field_descriptions, write_data_row, write_field_description};
 
     /// Serialize a query result and parse it back.
     #[test]
     fn query_response() {
-        let records = RecordCollection {
-            fields: vec![FieldDescription { name: String::from("field1"), data_type: DataType::Float },
-                         FieldDescription { name: String::from("field2"), data_type: DataType::Float }],
-            rows: vec![DataRow {
-                time: 12345678912345,
-                elements: vec![DataValue::from(123.0), DataValue::from(123.01)],
-            }],
-        };
         let result = QueryResult {
             count: 1,
             records: RecordCollection {
                 fields: vec![FieldDescription { name: String::from("field1"), data_type: DataType::Float },
                              FieldDescription { name: String::from("field2"), data_type: DataType::Float }],
-                rows: vec![DataRow {
-                    time: 12345678912345,
-                    elements: vec![DataValue::from(123.0), DataValue::from(123.01)],
-                }],
+                elements: vec![DataValue::Timestamp(12345678912345), DataValue::from(123.0), DataValue::from(123.01)],
             },
         };
 
@@ -250,9 +236,16 @@ mod tests {
         let mut buffer = build_query_result(&result);
         let result = parse_result(&mut buffer);
         match result {
-            ExecutionResult::Query(result) => {
+            ClientExecutionResult::Query(result) => {
                 assert_eq!(result.count, 1);
-                assert_eq!(result.records, records);
+                assert_eq!(result.records, ClientRecordCollection {
+                    fields: vec![FieldDescription { name: String::from("field1"), data_type: DataType::Float },
+                                 FieldDescription { name: String::from("field2"), data_type: DataType::Float }],
+                    rows: vec![DataRow {
+                        time: 12345678912345,
+                        elements: vec![DataValue::from(123.0), DataValue::from(123.01)],
+                    }],
+                });
             }
             _ => assert!(false)
         }
@@ -298,20 +291,20 @@ mod tests {
         assert_eq!(fields[1], FieldDescription { data_type: DataType::Float, name: String::from("field2") });
     }
 
-    // #[test]
-    // fn gen_field_descs() {
-    //     let mut buffer = vec![];
-    //     write_field_descriptions(&mut buffer, vec![
-    //         Field { data_type: DataType::Float, name: String::from("field1") },
-    //         Field { data_type: DataType::Float, name: String::from("field2") },
-    //     ]);
-    //
-    //     let mut cursor = ByteReader::new(&buffer);
-    //     let fields = parse_field_descriptions(&mut cursor).unwrap();
-    //     assert_eq!(fields.len(), 2);
-    //     assert_eq!(fields[0], Field { data_type: DataType::Float, name: String::from("field1") });
-    //     assert_eq!(fields[1], Field { data_type: DataType::Float, name: String::from("field2") });
-    // }
+// #[test]
+// fn gen_field_descs() {
+//     let mut buffer = vec![];
+//     write_field_descriptions(&mut buffer, vec![
+//         Field { data_type: DataType::Float, name: String::from("field1") },
+//         Field { data_type: DataType::Float, name: String::from("field2") },
+//     ]);
+//
+//     let mut cursor = ByteReader::new(&buffer);
+//     let fields = parse_field_descriptions(&mut cursor).unwrap();
+//     assert_eq!(fields.len(), 2);
+//     assert_eq!(fields[0], Field { data_type: DataType::Float, name: String::from("field1") });
+//     assert_eq!(fields[1], Field { data_type: DataType::Float, name: String::from("field2") });
+// }
 
     #[test]
     fn gen_data_row() {
@@ -342,5 +335,5 @@ mod tests {
         assert_eq!(parsed_row, row);
     }
 
-    // TODO: test like ^ but with Some (null values) for both float and bool
+// TODO: test like ^ but with Some (null values) for both float and bool
 }

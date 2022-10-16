@@ -12,8 +12,8 @@ use std::time::Duration;
 use postgres::NoTls;
 
 fn main() {
-    let mut client = rtdb_client::Client::new("127.0.0.1:2345").unwrap();
-    // let mut client = postgres::Client::connect("host=localhost user=postgres password=letmepass", NoTls).unwrap();
+    let mut rtdb_client = rtdb_client::Client::new("127.0.0.1:2345").unwrap();
+    let mut client = postgres::Client::connect("host=localhost user=postgres password=letmepass", NoTls).unwrap();
 
     // dirty concurrency performance test
     // for _ in 0..8 {
@@ -30,12 +30,12 @@ fn main() {
     //
     // thread::sleep(Duration::new(20, 0))
 
-    // test_postgres_reads(&mut client);
+    test_postgres_reads(&mut client);
     // test_postgres_inserts(&mut client);
 
 
-    // rtdb_test_reads(&mut client);
-    rtdb_test_inserts(&mut client);
+    rtdb_test_reads(&mut rtdb_client);
+    // rtdb_test_inserts(&mut rtdb_client);
 
     // test_postgres()
 }
@@ -44,7 +44,7 @@ fn main() {
 fn rtdb_test_reads(client: &mut rtdb_client::Client) {
     let start = time::Instant::now();
 
-    let N = 10;
+    let N = 1000;
     for _ in 0..N {
         let r = client.execute("SELECT test_series");
     }
@@ -56,9 +56,9 @@ fn rtdb_test_reads(client: &mut rtdb_client::Client) {
 fn rtdb_test_inserts(client: &mut rtdb_client::Client) {
     let start = time::Instant::now();
 
-    let N = 1000001;
+    let N = 15001;
     for _ in 0..N {
-        let _ = client.execute("INSERT test_series field1=123.0");
+        let _ = client.execute("INSERT test_series field1=123.0,field2=-321.0");
     }
 
     let elapsed = start.elapsed();
@@ -68,7 +68,7 @@ fn rtdb_test_inserts(client: &mut rtdb_client::Client) {
 fn test_postgres_reads(client: &mut postgres::Client) {
     let start = time::Instant::now();
 
-    let N = 10000;
+    let N = 1000;
     for _ in 0..N {
         let _ = client.query("SELECT * FROM playground", &[]).unwrap();
     }
