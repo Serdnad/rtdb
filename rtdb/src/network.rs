@@ -1,13 +1,20 @@
 use std::str::from_utf8;
+
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
+
 use crate::network::connection::ConnectionPool;
 
-mod tcp_handler;
 pub mod connection;
 pub mod server;
 
 const PORT: &str = "2345";
+
+// TODO: MOVE THESE?
+/// Protocol action
+pub const ACTION_AUTHENTICATE: u8 = 0x00;
+pub const ACTION_QUERY: u8 = 0x01;
+pub const ACTION_INSERT: u8 = 0x02;
 
 pub async fn start_tcp_listener() {
     let address = format!("{}:{}", "127.0.0.1", PORT);
@@ -27,12 +34,6 @@ pub async fn start_tcp_listener() {
     }
 }
 
-/// Protocol action
-pub const ACTION_AUTHENTICATE: u8 = 0x00;
-pub const ACTION_QUERY: u8 = 0x01;
-pub const ACTION_INSERT: u8 = 0x02;
-
-// TODO: move this
 /// Consumes a UCSD string, with a length specified as a u16.
 #[inline]
 async fn read_string(stream: &mut TcpStream) -> Option<String> {
@@ -49,9 +50,11 @@ async fn read_string(stream: &mut TcpStream) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-    use tokio::io::AsyncWriteExt;
-    use crate::network::{ACTION_QUERY, start_tcp_listener};
+
     use nom::AsBytes;
+    use tokio::io::AsyncWriteExt;
+
+    use crate::network::{ACTION_QUERY, start_tcp_listener};
 
     #[tokio::test]
     async fn accepts_connection() {

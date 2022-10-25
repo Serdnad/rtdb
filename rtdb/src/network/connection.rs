@@ -1,14 +1,14 @@
 use std::time;
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use crate::execution::{ExecutionResult};
+
 use crate::lang::Action;
 use crate::lang::insert::parse_insert;
 use crate::lang::query::parse_select;
 use crate::network::read_string;
 use crate::network::server::ENGINE;
-use crate::wire_protocol::insert::build_insert_result;
-use crate::wire_protocol::query::build_query_result;
+use crate::wire_protocol::build_response;
 
 /// A database connection.
 ///
@@ -60,37 +60,19 @@ impl Connection {
 
             let elapsed1 = start.elapsed();
 
-            match result {
-                ExecutionResult::Query(result) => {
-                    let mut response = build_query_result(&result);
+            let mut response = build_response(&result);
 
-                    let elapsed = start.elapsed();
-                    println!("{}us", elapsed1.as_micros());
-                    println!("{}us", elapsed.as_micros());
+            let elapsed = start.elapsed();
+            println!("exec: {}us", elapsed1.as_micros());
+            println!("post_serialization: {}us", elapsed.as_micros());
 
-                    // dbg!(&response.len());
-                    let len = response.len();
-                    let mut buf = Vec::with_capacity(2 + len);
+            let len = response.len();
+            let mut buf = Vec::with_capacity(2 + len);
+            buf.write_all(&len.to_be_bytes()).await;
+            buf.append(&mut response);
 
-                    buf.write_all(&len.to_be_bytes()).await;
-                    buf.append(&mut response);
-
-                    self.stream.write_all(&buf).await;
-                    self.stream.flush().await;
-                }
-                ExecutionResult::Insert(result) => {
-                    let mut response = build_insert_result(&result);
-
-
-                    let len = response.len();
-                    let mut buf = Vec::with_capacity(2 + len);
-                    buf.write_all(&len.to_be_bytes()).await;
-                    buf.append(&mut response);
-
-                    self.stream.write_all(&buf).await;
-                    self.stream.flush().await;
-                }
-            }
+            self.stream.write_all(&buf).await;
+            self.stream.flush().await;
         }
     }
 }

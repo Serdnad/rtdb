@@ -14,8 +14,6 @@ use crate::storage::field_block::FieldStorageBlock;
 use crate::storage::field_index::FieldStorageBlockSummary;
 use crate::wire_protocol::DataType;
 
-// TODO: One idea is to make this generic, and have different implementations for each kind of supported
-//  data type.
 // TODO: Another idea is to not have the time in record, which can be really redundant in the common case
 //  of multiple fields being written under the same series entry (i.e. with the same timestamp)
 #[derive(Archive, Copy, Clone, Deserialize, Serialize, Debug, PartialEq)]

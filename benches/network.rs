@@ -24,12 +24,12 @@ fn all(c: &mut Criterion) {
 
     c.bench_function("serialize query result", |b| {
         b.iter(|| {
-            let _ = build_query_result(&result);
+            let _ = build_query_result(&result, );
         })
     });
 
     c.bench_function("deserialize query result", |b| {
-        let buffer = build_query_result(&result);
+        let buffer = build_query_result(&result, );
 
         b.iter(|| {
             let mut cursor = ByteReader::new(&buffer);

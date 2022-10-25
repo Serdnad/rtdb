@@ -8,8 +8,6 @@ use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::storage::field::FieldEntry;
 
-
-
 #[derive(Archive, Clone, Deserialize, Serialize, Debug, PartialEq)]
 #[archive(compare(PartialEq))]
 #[archive_attr(derive(CheckBytes, Debug))]

@@ -1,5 +1,5 @@
 use std::io;
-use std::io::Read;
+use std::io::{BufWriter, Read, Write};
 use std::str::from_utf8;
 
 use byteorder::{BigEndian, ReadBytesExt};
@@ -7,7 +7,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::{ClientRecordCollection, DataRow, DataValue};
 use crate::execution::{ClientQueryResult, ExecutionResult, QueryResult};
-use crate::wire_protocol::{DataType, FieldDescription};
+use crate::wire_protocol::{DataType, FieldDescription, push_str};
 use crate::wire_protocol::insert::build_insert_result;
 
 pub type ByteReader<'a> = io::Cursor<&'a [u8]>;
@@ -19,50 +19,6 @@ pub type ByteReader<'a> = io::Cursor<&'a [u8]>;
 //  to other languages (which will also be a pain, but oh well.
 //  I think I'll keep it together for now because it's easier to test that way, but then I'll extract
 //  the client stuff to a new client lib.
-
-/// returns a buffer containing a query command, with a textual query.
-/// a query command is formatted as follows:
-
-
-// TODO: move
-pub fn build_response(result: &ExecutionResult) -> Vec<u8> {
-    let buffer = match result {
-        ExecutionResult::Query(query_result) => {
-            build_query_result(query_result)
-        }
-        ExecutionResult::Insert(insert_result) => {
-            build_insert_result(insert_result)
-        }
-    };
-
-    buffer
-}
-
-
-// TODO: move
-/// Pushes a string onto a buffer, prefixing it with the string's length as a u16
-fn push_str(buffer: &mut Vec<u8>, str: &str) {
-    // buffer.push(str.len() as u8);
-    let len = str.len() as u16;
-    buffer.extend(len.to_be_bytes());
-    buffer.extend(str.as_bytes());
-}
-
-/// A query response is formatted as follows:
-/// ```markdown
-/// [N_ROWS] [COLS_SUMMARY] [ROWS]
-/// u32      col_summaries  []data_row
-///
-/// [COL_SUMMARIES]:
-/// [N_SUMMARIES] [SUMMARIES]
-/// u8            []col_summary
-///
-/// [COL_SUMMARY]:
-/// [COL_TYPE]   [COL_NAME]
-/// u8           UCSD Str(u8)
-/// ```
-// pub fn build_query_response(result: QueryResult) {}
-
 
 /// Append a field description to a buffer.
 ///
@@ -83,15 +39,6 @@ fn write_field_descriptions(mut buffer: &mut Vec<u8>, fields: &Vec<FieldDescript
         write_field_description(&mut buffer, &field.name, field.data_type.clone())
     }
 }
-
-// fn build_field_summaries(fields: Vec<Field>) -> Vec<u8> {
-//     let mut buffer = Vec::with_capacity((2 + name.len()));
-//
-//     buffer.push(data_type as u8);
-//     buffer.push(name.len() as u8);
-//     buffer.extend(name.as_bytes());
-//     buffer
-// }
 
 #[inline]
 fn parse_field_description(buffer: &mut ByteReader) -> Result<(DataType, String), ()> {
@@ -218,7 +165,7 @@ mod tests {
     use crate::execution::{QueryResult};
     use crate::{DataRow, RecordCollection};
     use crate::wire_protocol::{ClientExecutionResult, DataType, FieldDescription, parse_result};
-    use crate::wire_protocol::query::{build_query_result, ByteReader, parse_data_row, parse_field_description, parse_field_descriptions, write_data_row, write_field_description};
+    use crate::wire_protocol::query::{build_query_result, ByteReader, parse_data_row, parse_field_description, parse_field_descriptions, write_data_row, write_field_description, write_field_descriptions};
 
     /// Serialize a query result and parse it back.
     #[test]
@@ -291,20 +238,20 @@ mod tests {
         assert_eq!(fields[1], FieldDescription { data_type: DataType::Float, name: String::from("field2") });
     }
 
-// #[test]
-// fn gen_field_descs() {
-//     let mut buffer = vec![];
-//     write_field_descriptions(&mut buffer, vec![
-//         Field { data_type: DataType::Float, name: String::from("field1") },
-//         Field { data_type: DataType::Float, name: String::from("field2") },
-//     ]);
-//
-//     let mut cursor = ByteReader::new(&buffer);
-//     let fields = parse_field_descriptions(&mut cursor).unwrap();
-//     assert_eq!(fields.len(), 2);
-//     assert_eq!(fields[0], Field { data_type: DataType::Float, name: String::from("field1") });
-//     assert_eq!(fields[1], Field { data_type: DataType::Float, name: String::from("field2") });
-// }
+    #[test]
+    fn gen_field_descs() {
+        let mut buffer = vec![];
+        write_field_descriptions(&mut buffer, &vec![
+            FieldDescription { data_type: DataType::Float, name: String::from("field1") },
+            FieldDescription { data_type: DataType::Float, name: String::from("field2") },
+        ]);
+
+        let mut cursor = ByteReader::new(&buffer);
+        let fields = parse_field_descriptions(&mut cursor).unwrap();
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0], FieldDescription { data_type: DataType::Float, name: String::from("field1") });
+        assert_eq!(fields[1], FieldDescription { data_type: DataType::Float, name: String::from("field2") });
+    }
 
     #[test]
     fn gen_data_row() {

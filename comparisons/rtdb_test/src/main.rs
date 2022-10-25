@@ -24,11 +24,11 @@ fn main() {
     // thread::sleep(Duration::new(20, 0))
 
     // test_postgres_reads(&mut client);
-    test_postgres_inserts(&mut client);
+    // test_postgres_inserts(&mut client);
 
 
-    // rtdb_test_reads(&mut rtdb_client);
-    rtdb_test_inserts(&mut rtdb_client);
+    rtdb_test_reads(&mut rtdb_client);
+    // rtdb_test_inserts(&mut rtdb_client);
 
     // test_postgres()
 }
@@ -47,7 +47,7 @@ fn time(name: &str, iterations: usize, func: &mut dyn FnMut()) {
 
 fn rtdb_test_reads(client: &mut rtdb_client::Client) {
     time("RTDB read", 1000, &mut || {
-        let r = client.execute("SELECT test_series");
+        let r = client.execute("SELECT test_series[field1, field2]");
     });
 }
 

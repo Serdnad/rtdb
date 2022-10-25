@@ -19,8 +19,6 @@ impl BlockManager {
         }
     }
 
-    // pub fn
-
     pub fn load(&mut self, block_offset: usize) -> &FieldStorageBlock {
         if block_offset < self.blocks.len() {
             return &self.blocks[block_offset];

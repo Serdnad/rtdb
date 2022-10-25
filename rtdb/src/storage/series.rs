@@ -142,6 +142,7 @@ impl SeriesStorage<'_> {
 
 /// Merge "columns" of fields into a single vector of records, sorting and matching entries by
 /// their timestamp.
+/// TODO: instead of outputting this into an intermediate result, these should get piped directly into the output
 pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, selections: &Vec<Selection>, fields: &Vec<&FieldStorage>) -> RecordCollection {
     // TODO: I don't this check does exactly what we want to do, but at some point we have to guard
     //  against empty results
@@ -208,20 +209,6 @@ pub fn merge_records(entries: &Vec<Vec<FieldEntry>>, selections: &Vec<Selection>
             }
         }
     }
-
-    // TODO: instead, we should be passing this in from above. the series should know what type each
-    //  field is.
-    // let names: Vec<_> = fields.iter().map(|&s| s.to_owned()).collect();
-    // let fields = entries.iter().enumerate().map(|(i, field)| {
-    //     let data_type = match field[0].value {
-    //         DataValue::None => DataType::Bool, // TODO: this is wrong
-    //         DataValue::Timestamp(_) => DataType::Timestamp,
-    //         DataValue::Bool(_) => DataType::Bool,
-    //         DataValue::Float(_) => DataType::Float,
-    //     };
-    //
-    //     FieldDescription { name: names[i].to_owned(), data_type }
-    // }).collect();
 
     let fields = fields.iter().map(|&field_storage| {
         FieldDescription { name: field_storage.name.clone(), data_type: field_storage.data_type.clone() }
