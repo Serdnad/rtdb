@@ -30,9 +30,8 @@ pub struct FieldEntry {
 
 #[derive(Debug)]
 pub struct FieldStorage {
-    field_name: String,
-
-    data_type: DataType,
+    pub name: String,
+    pub data_type: DataType,
 
     data_file_handle: File,
     index_file_handle: File,
@@ -66,7 +65,7 @@ impl FieldStorage {
 
         FieldStorage {
             data_type: DataType::Float, // TODO
-            field_name: field_name.to_owned(),
+            name: field_name.to_owned(),
             block_summaries: summaries,
             curr_block: FieldStorageBlock::new(),
             data_file_handle: data_file,

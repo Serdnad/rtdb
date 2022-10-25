@@ -58,15 +58,15 @@ impl Connection {
             let engine = ENGINE.read().await;
             let result = engine.execute(action);
 
-            // let elapsed1 = start.elapsed();
+            let elapsed1 = start.elapsed();
 
             match result {
                 ExecutionResult::Query(result) => {
                     let mut response = build_query_result(&result);
 
-                    // let elapsed = start.elapsed();
-                    // println!("{}us", elapsed1.as_micros());
-                    // println!("{}us", elapsed.as_micros());
+                    let elapsed = start.elapsed();
+                    println!("{}us", elapsed1.as_micros());
+                    println!("{}us", elapsed.as_micros());
 
                     // dbg!(&response.len());
                     let len = response.len();

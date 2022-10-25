@@ -13,17 +13,16 @@ pub enum Action<'a> {
 #[derive(Debug, PartialEq)]
 pub struct SelectQuery<'a> {
     pub series: &'a str,
-    pub fields: Vec<FieldSelection<'a>>,
+    pub selections: Vec<Selection<'a>>,
 
     pub start: Option<i64>,
     pub end: Option<i64>,
 
-    // TODO: filters, group by
+    // TODO: filters, group by, sort by, where
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Aggregation {
-    None,
     Mean,
     Last,
     First,
@@ -32,7 +31,20 @@ pub enum Aggregation {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct FieldSelection<'a> {
-    pub name: &'a str,
+pub enum Selection<'a> {
+    Field(&'a str),
+    Expression(Box<SelectExpression<'a>>),
+}
+
+
+#[derive(Debug, PartialEq)]
+pub struct SelectExpression<'a> {
+    pub expression: Selection<'a>,
     pub aggregator: Aggregation,
 }
+//
+// #[derive(Debug, PartialEq)]
+// pub struct FieldSelection<'a> {
+//     pub name: &'a str,
+//     pub aggregator: Aggregation,
+// }

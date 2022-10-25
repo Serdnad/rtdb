@@ -8,8 +8,23 @@ _ support modifiers on fields:
     _ mean
 
     _ support parsing in query language
+    _ support actually doing
 
 [X] migrate to parking lot - NOPE. Doesn't support async :(
 
 
+[_] Support multiple databases
+
+[_] Integrate auth
+
 [_] Figure out WAL thing
+
+Optimizations
+
+[_] Skip intermediate buffer before pushing out to network.
+[_] O_DIRECT flag?
+
+Compression
+
+[_] Compress bools
+[_] Compress floats

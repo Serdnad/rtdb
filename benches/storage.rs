@@ -115,7 +115,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let entries = vec![a, c];
 
         b.iter(|| {
-            let _records = merge_records(&entries, &vec!["field1", "field2"]);
+            let _records = merge_records(&entries, &vec!["field1", "field2"], );
         });
     });
 
@@ -125,7 +125,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let entries = vec![a, c];
 
         b.iter(|| {
-            let _records = merge_records(&entries, &vec!["field1", "field2"]);
+            let _records = merge_records(&entries, &vec!["field1", "field2"], );
         })
     });
 
@@ -145,7 +145,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let entries = vec![a, c];
 
         b.iter(|| {
-            let _records = merge_records(&entries, &vec!["field1", "field2"]);
+            let _records = merge_records(&entries, &vec!["field1", "field2"], );
         })
     });
 
@@ -181,7 +181,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i, value: DataValue::from(1.0) }).collect();
             let entries = vec![a, b, c, d];
 
-            let _records = merge_records(&entries, &vec!["field1", "field2", "field3", "field4"]);
+            let _records = merge_records(&entries, &vec!["field1", "field2", "field3", "field4"], );
         })
     });
 
@@ -205,7 +205,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             let d: Vec<_> = (0..100).into_iter().map(|i| FieldEntry { time: i * 4 + 3, value: DataValue::from(3.0) }).collect();
             let entries = vec![a, b, c, d];
 
-            let _records = merge_records(&entries, &vec!["field1", "field2", "field3", "field4"]);
+            let _records = merge_records(&entries, &vec!["field1", "field2", "field3", "field4"], );
         })
     });
 
@@ -229,7 +229,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             s.read(SelectQuery {
                 series: "test_series",
-                fields: vec![],
+                selections: vec![],
                 start: None,
                 end: None,
             });

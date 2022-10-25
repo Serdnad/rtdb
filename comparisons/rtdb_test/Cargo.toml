@@ -15,6 +15,7 @@ path = "src/main.rs"
 rtdb_client = { path = "../../client" }
 
 postgres = "0.19.4"
+influxdb = "0.5.2"
 
 
 # TEST jemallocator

@@ -1,6 +1,7 @@
 use std::str::from_utf8;
 
-use crate::lang::{Aggregation, FieldSelection, SelectQuery};
+use crate::lang::{Aggregation, SelectExpression, Selection, SelectQuery};
+use crate::lang::Selection::Expression;
 use crate::lang::util::{advance_whitespace, parse_ascii, parse_identifier, parse_timestamp};
 
 /// Parse a full SELECT query.
@@ -24,13 +25,13 @@ pub fn parse_select(raw_query: &mut str) -> SelectQuery {
     //  TODO: actually, if we switch to parse_identifier, we probably can
     let series_name = from_utf8(&input[start_index..index]).unwrap();
 
-    let mut query = SelectQuery { series: series_name, fields: vec![], start: None, end: None };
+    let mut query = SelectQuery { series: series_name, selections: vec![], start: None, end: None };
     if index == input.len() {
         return query;
     }
 
     advance_whitespace(input, &mut index);
-    parse_fields(input, &mut index, &mut query.fields);
+    parse_fields(input, &mut index, &mut query.selections);
     advance_whitespace(input, &mut index);
     parse_time_range(input, &mut index, &mut query);
 
@@ -43,7 +44,7 @@ pub fn parse_select(raw_query: &mut str) -> SelectQuery {
     query
 }
 
-fn parse_fields<'a>(s: &'a [u8], index: &mut usize, fields: &mut Vec<FieldSelection<'a>>) {
+fn parse_fields<'a>(s: &'a [u8], index: &mut usize, fields: &mut Vec<Selection<'a>>) {
     if !parse_ascii("[", s, index) {
         return;
     }
@@ -71,18 +72,18 @@ fn parse_fields<'a>(s: &'a [u8], index: &mut usize, fields: &mut Vec<FieldSelect
 }
 
 #[inline]
-fn parse_field_selection<'a>(s: &'a [u8], index: &mut usize) -> Option<FieldSelection<'a>> {
+fn parse_field_selection<'a>(s: &'a [u8], index: &mut usize) -> Option<Selection<'a>> {
     let aggregator =
         if parse_ascii("last(", s, index) {
-            Aggregation::Last
+            Some(Aggregation::Last)
         } else if parse_ascii("mean(", s, index) {
-            Aggregation::Mean
+            Some(Aggregation::Mean)
         } else if parse_ascii("max(", s, index) {
-            Aggregation::Max
+            Some(Aggregation::Max)
         } else if parse_ascii("min(", s, index) {
-            Aggregation::Min
+            Some(Aggregation::Min)
         } else {
-            Aggregation::None
+            None
         };
 
 
@@ -91,11 +92,15 @@ fn parse_field_selection<'a>(s: &'a [u8], index: &mut usize) -> Option<FieldSele
         return None;
     }
 
-    if aggregator != Aggregation::None {
-        parse_ascii(")", s, index);
-    }
+    let selection = match aggregator {
+        Some(aggregator) => {
+            parse_ascii(")", s, index);
+            Selection::Expression(Box::new(SelectExpression { expression: Selection::Field(ident), aggregator }))
+        }
+        None => Selection::Field(ident)
+    };
 
-    Some(FieldSelection { name: ident, aggregator })
+    Some(selection)
 }
 
 /// Parses a time range from one of the following formats:
@@ -122,12 +127,12 @@ fn parse_time_range<'a>(s: &'a [u8], mut index: &mut usize, query: &mut SelectQu
 #[cfg(test)]
 mod tests {
     use crate::lang::query::{parse_select, parse_time_range};
-    use crate::lang::{Aggregation, FieldSelection, SelectQuery};
+    use crate::lang::{Aggregation, SelectExpression, Selection, SelectQuery};
 
     #[test]
     fn time_range() {
         let mut input = "after 1663226470079106890".as_bytes();
-        let mut query = SelectQuery { series: "test_series", fields: vec![], start: None, end: None };
+        let mut query = SelectQuery { series: "test_series", selections: vec![], start: None, end: None };
         let mut index = 0;
 
         parse_time_range(&mut input, &mut index, &mut query)
@@ -137,14 +142,14 @@ mod tests {
     fn select_query_simple() {
         let mut input = String::from("SELECT test_series");
         let query = parse_select(&mut input);
-        assert_eq!(query, SelectQuery { series: "test_series", fields: vec![], start: None, end: None });
+        assert_eq!(query, SelectQuery { series: "test_series", selections: vec![], start: None, end: None });
 
         let mut input = String::from("SELECT test_series[value1, value2]");
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![FieldSelection { name: "value1", aggregator: Aggregation::None },
-                         FieldSelection { name: "value2", aggregator: Aggregation::None }],
+            selections: vec![Selection::Field("value1"),
+                             Selection::Field("value2")],
             start: None,
             end: None,
         });
@@ -156,7 +161,7 @@ mod tests {
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![],
+            selections: vec![],
             start: Some(1663226470079106890),
             end: None,
         });
@@ -165,8 +170,8 @@ mod tests {
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![FieldSelection { name: "value1", aggregator: Aggregation::None },
-                         FieldSelection { name: "value2", aggregator: Aggregation::None }],
+            selections: vec![Selection::Field("value1"),
+                             Selection::Field("value2")],
             start: Some(1663226470079106890),
             end: None,
         });
@@ -175,18 +180,19 @@ mod tests {
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![FieldSelection { name: "value1", aggregator: Aggregation::None },
-                         FieldSelection { name: "value2", aggregator: Aggregation::None }],
+            selections: vec![Selection::Field("value1"),
+                             Selection::Field("value2")],
             start: None,
-            end: Some(1663226470079106895),
+            end: Some(
+                1663226470079106895),
         });
 
         let mut input = String::from("SELECT test_series[value1, value2] AFTER 1663226470079106890 BEFORE 1663226470079106895");
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![FieldSelection { name: "value1", aggregator: Aggregation::None },
-                         FieldSelection { name: "value2", aggregator: Aggregation::None }],
+            selections: vec![Selection::Field("value1"),
+                             Selection::Field("value2")],
             start: Some(1663226470079106890),
             end: Some(1663226470079106895),
         });
@@ -196,15 +202,17 @@ mod tests {
     fn select_query_aggregator() {
         let mut input = String::from("SELECT test_series");
         let query = parse_select(&mut input);
-        assert_eq!(query, SelectQuery { series: "test_series", fields: vec![], start: None, end: None });
+        assert_eq!(query, SelectQuery { series: "test_series", selections: vec![], start: None, end: None });
 
 
         let mut input = String::from("SELECT test_series[last(value1), value2]");
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![FieldSelection { name: "value1", aggregator: Aggregation::Last },
-                         FieldSelection { name: "value2", aggregator: Aggregation::None }],
+            selections: vec![Selection::Expression(Box::new(SelectExpression {
+                expression: Selection::Field("value1"),
+                aggregator: Aggregation::Last,
+            })), Selection::Field("value2")],
             start: None,
             end: None,
         });
@@ -214,8 +222,11 @@ mod tests {
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![FieldSelection { name: "value1", aggregator: Aggregation::None },
-                         FieldSelection { name: "value2", aggregator: Aggregation::Mean }],
+            selections: vec![Selection::Field("value1"),
+                             Selection::Expression(Box::new(SelectExpression {
+                                 expression: Selection::Field("value2"),
+                                 aggregator: Aggregation::Mean,
+                             }))],
             start: None,
             end: None,
         });
@@ -225,9 +236,18 @@ mod tests {
         let query = parse_select(&mut input);
         assert_eq!(query, SelectQuery {
             series: "test_series",
-            fields: vec![FieldSelection { name: "value1", aggregator: Aggregation::Min },
-                         FieldSelection { name: "value2", aggregator: Aggregation::Max },
-                         FieldSelection { name: "value3", aggregator: Aggregation::Mean }],
+            selections: vec![Selection::Expression(Box::new(SelectExpression {
+                expression: Selection::Field("value1"),
+                aggregator: Aggregation::Min,
+            })),
+                             Selection::Expression(Box::new(SelectExpression {
+                                 expression: Selection::Field("value2"),
+                                 aggregator: Aggregation::Max,
+                             })),
+                             Selection::Expression(Box::new(SelectExpression {
+                                 expression: Selection::Field("value3"),
+                                 aggregator: Aggregation::Mean,
+                             }))],
             start: None,
             end: None,
         });
