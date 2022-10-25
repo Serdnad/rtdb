@@ -1,6 +1,6 @@
 extern crate core;
 
-use std::fmt::{Display, Formatter, write};
+use std::fmt::{Formatter};
 
 
 use bytecheck::CheckBytes;

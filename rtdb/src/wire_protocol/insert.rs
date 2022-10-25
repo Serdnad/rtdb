@@ -15,7 +15,7 @@ pub fn build_insert_result(result: &InsertionResult) -> Vec<u8> {
     vec![2, result.success as u8]
 }
 
-pub fn parse_insert_result(mut buffer: &mut ByteReader) -> InsertionResult {
+pub fn parse_insert_result(buffer: &mut ByteReader) -> InsertionResult {
     let success = buffer.read_u8().unwrap() == 1;
     InsertionResult { success }
 }

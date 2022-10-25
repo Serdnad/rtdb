@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 
 use crate::lang::{Aggregation, SelectExpression, Selection, SelectQuery};
-use crate::lang::Selection::Expression;
+
 use crate::lang::util::{advance_whitespace, parse_ascii, parse_identifier, parse_timestamp};
 
 /// Parse a full SELECT query.

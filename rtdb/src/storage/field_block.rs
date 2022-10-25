@@ -130,7 +130,7 @@ mod tests {
     use std::fs::File;
     use crate::DataValue;
 
-    use crate::storage::field::{FieldEntry, FieldStorage};
+    use crate::storage::field::{FieldStorage};
     use crate::storage::field_block::FieldStorageBlock;
 
     #[test]

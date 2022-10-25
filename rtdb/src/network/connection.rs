@@ -1,7 +1,7 @@
 use std::time;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use crate::execution::{ExecutionResult, QueryResult};
+use crate::execution::{ExecutionResult};
 use crate::lang::Action;
 use crate::lang::insert::parse_insert;
 use crate::lang::query::parse_select;

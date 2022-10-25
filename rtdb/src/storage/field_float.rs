@@ -1,4 +1,4 @@
-use crate::storage::field::FieldEntry;
+
 
 trait BlockEncodable {
     fn encode(&self);
@@ -108,7 +108,7 @@ mod tests {
 
         let b = vec![false];
 
-        let c: Vec<Box<dyn BlockEncodable>> = vec![Box::new(a), Box::new(b)];
+        let _c: Vec<Box<dyn BlockEncodable>> = vec![Box::new(a), Box::new(b)];
 
         // let a: Vec<f64> = deserialize_block();
         // let b: Vec<bool> = deserialize_block();

@@ -3,9 +3,9 @@ use std::io::Read;
 use std::str::from_utf8;
 
 use byteorder::{BigEndian, ReadBytesExt};
-use tokio::time;
 
-use crate::{ClientRecordCollection, DataRow, DataValue, RecordCollection};
+
+use crate::{ClientRecordCollection, DataRow, DataValue};
 use crate::execution::{ClientQueryResult, ExecutionResult, QueryResult};
 use crate::wire_protocol::{DataType, FieldDescription};
 use crate::wire_protocol::insert::build_insert_result;
@@ -126,12 +126,12 @@ fn parse_field_descriptions(buffer: &mut ByteReader) -> Result<Vec<FieldDescript
 // TODO: generalizing this might be a pain... but oh well
 // TODO: figure out what to do about null values
 #[inline]
-fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow, fields: &Vec<FieldDescription>) {
+fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow, _fields: &Vec<FieldDescription>) {
     let time = row.time;
     buffer.extend(time.to_be_bytes());
 
-    for (i, entry) in row.elements.iter().enumerate() {
-        buffer.extend((&entry.to_be_bytes())); // TODO: handle None properly
+    for (_i, entry) in row.elements.iter().enumerate() {
+        buffer.extend(&entry.to_be_bytes()); // TODO: handle None properly
     };
 }
 
@@ -162,7 +162,7 @@ pub fn build_query_result(result: &QueryResult) -> Vec<u8> {
 
     buffer.extend((result.count as u32).to_be_bytes());
     for elem in &result.records.elements {
-        buffer.extend((&elem.to_be_bytes())); // TODO: handle None properly
+        buffer.extend(&elem.to_be_bytes()); // TODO: handle None properly
     }
     buffer
 }
@@ -215,7 +215,7 @@ mod tests {
     use byteorder::{BigEndian, ReadBytesExt};
 
     use crate::{ClientRecordCollection, DataValue};
-    use crate::execution::{ExecutionResult, QueryResult};
+    use crate::execution::{QueryResult};
     use crate::{DataRow, RecordCollection};
     use crate::wire_protocol::{ClientExecutionResult, DataType, FieldDescription, parse_result};
     use crate::wire_protocol::query::{build_query_result, ByteReader, parse_data_row, parse_field_description, parse_field_descriptions, write_data_row, write_field_description};

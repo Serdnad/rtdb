@@ -154,7 +154,7 @@ mod tests {
         assert_eq!(index, 18);
 
         let mut index = 0;
-        let (parsed, ident) = parse_identifier(b"1identifiers_cannot_start_with_number", &mut index);
+        let (parsed, _ident) = parse_identifier(b"1identifiers_cannot_start_with_number", &mut index);
         assert_eq!(parsed, false);
         assert_eq!(index, 0);
 

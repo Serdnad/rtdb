@@ -30,7 +30,7 @@ pub fn serialize_bools(values: &Vec<Option<bool>>) -> Vec<u8> {
     buf
 }
 
-pub fn serialize_floats(values: &Vec<Option<f64>>) -> Vec<u8> {
+pub fn serialize_floats(_values: &Vec<Option<f64>>) -> Vec<u8> {
     todo!()
 }
 

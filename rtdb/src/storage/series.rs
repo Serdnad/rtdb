@@ -1,11 +1,11 @@
 use std::fs::{create_dir_all, read_dir};
-use std::io::{Read, Write};
+use std::io::{Read};
 use std::io::ErrorKind::AlreadyExists;
 use std::str;
 
 use fnv::FnvHashMap;
 
-use crate::{DataRow, DataValue, RecordCollection};
+use crate::{DataValue, RecordCollection};
 use crate::lang::{Selection, SelectQuery};
 use crate::storage::DEFAULT_DATA_DIR;
 use crate::storage::field::{FieldEntry, FieldStorage};
@@ -330,7 +330,7 @@ mod tests {
         // }
 
         dbg!(&s.field_storages.get("field1").unwrap());
-        let r = s.read(SelectQuery {
+        let _r = s.read(SelectQuery {
             series: "test_series",
             selections: vec![Selection::Field("field1")],
             start: None,
@@ -339,7 +339,7 @@ mod tests {
         // dbg!(r.rows.len());
 
         dbg!(&s.field_storages.get("field2").unwrap());
-        let r = s.read(SelectQuery {
+        let _r = s.read(SelectQuery {
             series: "test_series",
             selections: vec![Selection::Field("field2")],
             start: None,
