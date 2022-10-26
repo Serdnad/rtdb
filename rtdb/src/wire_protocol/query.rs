@@ -1,14 +1,13 @@
 use std::io;
-use std::io::{BufWriter, Read, Write};
+use std::io::{Read, Write};
 use std::str::from_utf8;
 
 use byteorder::{BigEndian, ReadBytesExt};
-
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::{ClientRecordCollection, DataRow, DataValue};
-use crate::execution::{ClientQueryResult, ExecutionResult, QueryResult};
+use crate::execution::{ClientQueryResult, QueryResult};
 use crate::wire_protocol::{DataType, FieldDescription, push_str};
-use crate::wire_protocol::insert::build_insert_result;
 
 pub type ByteReader<'a> = io::Cursor<&'a [u8]>;
 
@@ -20,23 +19,22 @@ pub type ByteReader<'a> = io::Cursor<&'a [u8]>;
 //  I think I'll keep it together for now because it's easier to test that way, but then I'll extract
 //  the client stuff to a new client lib.
 
-/// Append a field description to a buffer.
+/// Append multiple field descriptions to a buffer, prefixed by the number of fields being printed
+/// as a u8.
 ///
 /// A field description is formatted as:
 /// [DATA_TYPE] [NAME]
 /// u8          PStr(u8)
 #[inline]
-fn write_field_description(mut buffer: &mut Vec<u8>, name: &str, data_type: DataType) {
-    buffer.push(data_type as u8);
-    push_str(&mut buffer, name);
-}
-
-/// Append multiple field descriptions to a buffer, prefixed by the number of fields being printed
-/// as a u8.
-fn write_field_descriptions(mut buffer: &mut Vec<u8>, fields: &Vec<FieldDescription>) {
-    buffer.push(fields.len() as u8);
+async fn write_field_descriptions<T>(mut buffer: T, fields: &Vec<FieldDescription>)
+    where
+        T: AsyncWrite + Unpin + Send
+{
+    buffer.write(&(fields.len() as u8).to_be_bytes()).await;
     for field in fields {
-        write_field_description(&mut buffer, &field.name, field.data_type.clone())
+        let t = (&field.data_type).clone() as u8;
+        buffer.write(&t.to_be_bytes()).await;
+        push_str(&mut buffer, &field.name).await;
     }
 }
 
@@ -67,24 +65,23 @@ fn parse_field_descriptions(buffer: &mut ByteReader) -> Result<Vec<FieldDescript
     Ok(fields)
 }
 
-// TODO
-// pub fn parse_query_response()
-
 // TODO: generalizing this might be a pain... but oh well
 // TODO: figure out what to do about null values
-#[inline]
-fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow, _fields: &Vec<FieldDescription>) {
-    let time = row.time;
-    buffer.extend(time.to_be_bytes());
-
-    for (_i, entry) in row.elements.iter().enumerate() {
-        buffer.extend(&entry.to_be_bytes()); // TODO: handle None properly
-    };
-}
+// #[inline]
+// fn write_data_row(buffer: &mut Vec<u8>, row: &DataRow, _fields: &Vec<FieldDescription>) {
+//     let time = row.time;
+//     buffer.extend(time.to_be_bytes());
+//
+//     for (_i, entry) in row.elements.iter().enumerate() {
+//         buffer.extend(&entry.to_be_bytes()); // TODO: handle None properly
+//     };
+// }
 
 #[inline]
 fn parse_data_row(buffer: &mut ByteReader, fields: &Vec<FieldDescription>) -> DataRow {
-    let mut values = Vec::with_capacity(fields.len());
+    let mut values = Vec::with_capacity(fields.len()); // TODO: don't alloc per row...
+
+    dbg!(&buffer);
 
     let time = buffer.read_i64::<BigEndian>().unwrap();
     for field in fields {
@@ -100,18 +97,19 @@ fn parse_data_row(buffer: &mut ByteReader, fields: &Vec<FieldDescription>) -> Da
     DataRow { time, elements: values }
 }
 
-pub fn build_query_result(result: &QueryResult) -> Vec<u8> {
+pub async fn build_query_result<T>(result: &QueryResult, mut out: &mut T)
+    where
+        T: AsyncWrite + Unpin + Send
+{
     let fields = &result.records.fields;
 
-    let mut buffer = Vec::with_capacity(estimate_mem(&fields, result.count));
-    buffer.push(1); // TODO: this says that it's a query result. move this out of this function (?).
-    write_field_descriptions(&mut buffer, &fields);
+    out.write(&1u8.to_be_bytes()).await; // TODO: replace with constant?
+    write_field_descriptions(&mut out, &fields).await;
 
-    buffer.extend((result.count as u32).to_be_bytes());
+    out.write(&(result.count as u32).to_be_bytes()).await;
     for elem in &result.records.elements {
-        buffer.extend(&elem.to_be_bytes()); // TODO: handle None properly
+        out.write(&elem.to_be_bytes()).await; // TODO: handle None properly
     }
-    buffer
 }
 
 pub fn parse_query_result(mut buffer: &mut ByteReader) -> ClientQueryResult {
@@ -158,18 +156,15 @@ fn estimate_mem(fields: &Vec<FieldDescription>, row_count: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use std::str::from_utf8;
-
-    use byteorder::{BigEndian, ReadBytesExt};
-
     use crate::{ClientRecordCollection, DataValue};
-    use crate::execution::{QueryResult};
     use crate::{DataRow, RecordCollection};
+    use crate::execution::QueryResult;
     use crate::wire_protocol::{ClientExecutionResult, DataType, FieldDescription, parse_result};
-    use crate::wire_protocol::query::{build_query_result, ByteReader, parse_data_row, parse_field_description, parse_field_descriptions, write_data_row, write_field_description, write_field_descriptions};
+    use crate::wire_protocol::query::{build_query_result, ByteReader, parse_field_descriptions, write_field_descriptions};
 
     /// Serialize a query result and parse it back.
-    #[test]
-    fn query_response() {
+    #[tokio::test]
+    async fn query_response() {
         let result = QueryResult {
             count: 1,
             records: RecordCollection {
@@ -179,9 +174,12 @@ mod tests {
             },
         };
 
-        dbg!(&result);
-        let mut buffer = build_query_result(&result);
-        let result = parse_result(&mut buffer);
+        // dbg!(&result);
+        let mut buf = vec![];
+        build_query_result(&result, &mut buf).await;
+        dbg!(&buf);
+
+        let result = parse_result(&mut buf);
         match result {
             ClientExecutionResult::Query(result) => {
                 assert_eq!(result.count, 1);
@@ -198,53 +196,15 @@ mod tests {
         }
     }
 
-    #[test]
-    fn gen_field_desc() {
-        let mut buffer = vec![];
-        let _col_summary = write_field_description(&mut buffer, "field1", DataType::Float);
-        assert_eq!(buffer[0], 0);
-        assert_eq!(buffer[2], 6);
-        assert_eq!(from_utf8(&buffer[3..]).unwrap(), "field1");
-
-
-        let mut buffer = vec![];
-        let _col_summary = write_field_description(&mut buffer, "field2", DataType::Float);
-        assert_eq!(buffer[0], 0);
-        assert_eq!(buffer[2], 6);
-        assert_eq!(from_utf8(&buffer[3..]).unwrap(), "field2");
-    }
-
-    #[test]
-    fn parse_field_desc() {
-        let mut buffer = vec![];
-        let _col_summary = write_field_description(&mut buffer, "field1", DataType::Float);
-
-        let mut cursor = ByteReader::new(&buffer);
-        let col_summary = parse_field_description(&mut cursor).unwrap();
-        assert_eq!(col_summary.0, DataType::Float);
-        assert_eq!(col_summary.1, "field1");
-    }
-
-    #[test]
-    fn parse_field_descs() {
-        let mut buffer = vec![2];
-        write_field_description(&mut buffer, "field1", DataType::Bool);
-        write_field_description(&mut buffer, "field2", DataType::Float);
-
-        let mut cursor = ByteReader::new(&buffer);
-        let fields = parse_field_descriptions(&mut cursor).unwrap();
-        assert_eq!(fields.len(), 2);
-        assert_eq!(fields[0], FieldDescription { data_type: DataType::Bool, name: String::from("field1") });
-        assert_eq!(fields[1], FieldDescription { data_type: DataType::Float, name: String::from("field2") });
-    }
-
-    #[test]
-    fn gen_field_descs() {
+    #[tokio::test]
+    async fn field_descs() {
         let mut buffer = vec![];
         write_field_descriptions(&mut buffer, &vec![
             FieldDescription { data_type: DataType::Float, name: String::from("field1") },
             FieldDescription { data_type: DataType::Float, name: String::from("field2") },
-        ]);
+        ]).await;
+
+        dbg!(&buffer);
 
         let mut cursor = ByteReader::new(&buffer);
         let fields = parse_field_descriptions(&mut cursor).unwrap();
@@ -253,34 +213,49 @@ mod tests {
         assert_eq!(fields[1], FieldDescription { data_type: DataType::Float, name: String::from("field2") });
     }
 
-    #[test]
-    fn gen_data_row() {
-        let row = DataRow { time: 12345678912345, elements: vec![DataValue::from(123.0), DataValue::from(123.01)] };
+    // #[test]
+    // fn parse_field_descs() {
+    //     let mut buffer = vec![2];
+    //     write_field_descriptions(&mut buffer, &vec![
+    //         FieldDescription { data_type: DataType::Float, name: String::from("field1") },
+    //         FieldDescription { data_type: DataType::Float, name: String::from("field2") },
+    //     ]);
+    //
+    //     let mut cursor = ByteReader::new(&buffer);
+    //     let fields = parse_field_descriptions(&mut cursor).unwrap();
+    //     assert_eq!(fields.len(), 2);
+    //     assert_eq!(fields[0], FieldDescription { data_type: DataType::Bool, name: String::from("field1") });
+    //     assert_eq!(fields[1], FieldDescription { data_type: DataType::Float, name: String::from("field2") });
+    // }
 
-        let mut buffer = vec![];
-        write_data_row(&mut buffer, &row, &vec![]);
+    // #[test]
+    // fn gen_data_row() {
+    //     let row = DataRow { time: 12345678912345, elements: vec![DataValue::from(123.0), DataValue::from(123.01)] };
+    //
+    //     let mut buffer = vec![];
+    //     write_data_row(&mut buffer, &row, &vec![]);
+    //
+    //     let mut cursor = ByteReader::new(&buffer);
+    //     assert_eq!(cursor.read_i64::<BigEndian>().unwrap(), 12345678912345);
+    //     assert_eq!(cursor.read_f64::<BigEndian>().unwrap(), 123.0);
+    //     assert_eq!(cursor.read_f64::<BigEndian>().unwrap(), 123.01);
+    // }
 
-        let mut cursor = ByteReader::new(&buffer);
-        assert_eq!(cursor.read_i64::<BigEndian>().unwrap(), 12345678912345);
-        assert_eq!(cursor.read_f64::<BigEndian>().unwrap(), 123.0);
-        assert_eq!(cursor.read_f64::<BigEndian>().unwrap(), 123.01);
-    }
-
-    #[test]
-    fn parses_data_row() {
-        let row = DataRow { time: 12345678912345, elements: vec![DataValue::from(123.0), DataValue::from(123.01)] };
-
-        let mut buffer = vec![];
-        write_data_row(&mut buffer, &row, &vec![]);
-
-        let mut cursor = ByteReader::new(&buffer);
-        let parsed_row = parse_data_row(&mut cursor, &vec![
-            FieldDescription { name: String::from("field1"), data_type: DataType::Float },
-            FieldDescription { name: String::from("field2"), data_type: DataType::Float },
-        ]);
-
-        assert_eq!(parsed_row, row);
-    }
+    // #[test]
+    // fn parses_data_row() {
+    //     let row = DataRow { time: 12345678912345, elements: vec![DataValue::from(123.0), DataValue::from(123.01)] };
+    //
+    //     let mut buffer = vec![];
+    //     write_data_row(&mut buffer, &row, &vec![]);
+    //
+    //     let mut cursor = ByteReader::new(&buffer);
+    //     let parsed_row = parse_data_row(&mut cursor, &vec![
+    //         FieldDescription { name: String::from("field1"), data_type: DataType::Float },
+    //         FieldDescription { name: String::from("field2"), data_type: DataType::Float },
+    //     ]);
+    //
+    //     assert_eq!(parsed_row, row);
+    // }
 
 // TODO: test like ^ but with Some (null values) for both float and bool
 }

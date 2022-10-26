@@ -1,8 +1,10 @@
 // TODO: a lot of this code, particularly the parsing, will very easily cause panics if
 //  the input is not perfect.
 
-use std::io::Write;
+use std::io::{Write};
 use byteorder::ReadBytesExt;
+use tokio::net::TcpStream;
+use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use crate::execution::{ClientQueryResult, ExecutionResult, InsertionResult};
 use crate::wire_protocol::insert::{build_insert_result, parse_insert_result};
@@ -43,11 +45,14 @@ pub struct FieldDescription {
 /// Serialize an execution result into a byte vector that is ready to be sent back to the client,
 /// using a format custom to our database.
 /// TODO: the function name is perhaps a little on the nose (or well, verbose)
-pub fn build_response(result: &ExecutionResult) -> Vec<u8> {
+pub async fn build_response<T>(result: &ExecutionResult, out: &mut T)
+    where
+        T: AsyncWrite + Unpin + Send
+{
     match result {
-        ExecutionResult::Query(query_result) => build_query_result(query_result),
-        ExecutionResult::Insert(insert_result) => build_insert_result(insert_result),
-    }
+        ExecutionResult::Query(query_result) => build_query_result(query_result, out).await,
+        ExecutionResult::Insert(insert_result) => build_insert_result(insert_result, out).await,
+    };
 }
 
 // TODO: move to client library and rename
@@ -74,8 +79,11 @@ pub fn parse_result(buffer: &mut Vec<u8>) -> ClientExecutionResult {
 
 /// Pushes a string onto a buffer, prefixing it with the string's length as a u16
 #[inline]
-fn push_str(buffer: &mut Vec<u8>, str: &str) {
+async fn push_str<T>(buffer: &mut T, str: &str)
+    where
+        T: AsyncWrite + Unpin + Send
+{
     let len = str.len() as u16;
-    buffer.extend(len.to_be_bytes());
-    buffer.extend(str.as_bytes());
+    buffer.write(&len.to_be_bytes()).await;
+    buffer.write(&str.as_bytes()).await;
 }

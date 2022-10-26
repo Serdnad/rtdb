@@ -1,6 +1,6 @@
 use std::time;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
 
 use crate::lang::Action;
@@ -60,19 +60,31 @@ impl Connection {
 
             let elapsed1 = start.elapsed();
 
-            let mut response = build_response(&result);
+
+            // --
+            // --
+            // --
+            // -- HEY! So, the issue that we left off at, is that we don't actually
+            //      know the length of the response, which we were previously sending as the very
+            //      first part of the response...
+            // --
+            // --
+
+
+
+            let mut buf = BufWriter::new(&mut self.stream);
+            build_response(&result, &mut buf).await;
+            buf.flush().await;
 
             let elapsed = start.elapsed();
             println!("exec: {}us", elapsed1.as_micros());
-            println!("post_serialization: {}us", elapsed.as_micros());
 
-            let len = response.len();
-            let mut buf = Vec::with_capacity(2 + len);
-            buf.write_all(&len.to_be_bytes()).await;
-            buf.append(&mut response);
-
-            self.stream.write_all(&buf).await;
+            // let len = response.len();
+            self.stream.write(&len.to_be_bytes()).await;
+            self.stream.write_all(&response).await;
             self.stream.flush().await;
+
+            println!("post_serialization: {}us", elapsed.as_micros());
         }
     }
 }
